@@ -1,0 +1,13 @@
+INFO:     Will watch for changes in these directories: ['/Users/architsinghania/Documents/Aureon/python_audio_service']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [85575] using StatReload
+INFO:     Started server process [85618]
+INFO:     Waiting for application startup.
+2026-06-08 23:22:41,088 INFO main: Aureon audio service started
+2026-06-08 23:22:41,088 INFO job_queue: Job worker started
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [85618]
+INFO:     Stopping reloader process [85575]
