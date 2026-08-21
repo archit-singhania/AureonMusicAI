@@ -1,3 +1,5 @@
+import '../theme/premium_theme.dart';
+import '../widgets/glass_card.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -270,7 +272,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
               content: Text('AI Producer adjusted: $instruction'),
 
-              backgroundColor: const Color(0xFF6C63FF),
+              backgroundColor: PremiumTheme.neonCyan,
 
             ),
 
@@ -306,7 +308,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
               content: Text('Rendering 9:16 vertical video visualizer...'),
 
-              backgroundColor: Color(0xFF6C63FF),
+              backgroundColor: PremiumTheme.neonCyan,
 
             ),
 
@@ -388,7 +390,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
           controller: _tabController,
 
-          indicatorColor: const Color(0xFF6C63FF),
+          indicatorColor: PremiumTheme.neonCyan,
 
           indicatorWeight: 3,
 
@@ -412,7 +414,15 @@ class _PlayerScreenState extends State<PlayerScreen>
 
       ),
 
-      body: TabBarView(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(0.0, -0.2),
+            radius: 1.2,
+            colors: [PremiumTheme.deepSpace, PremiumTheme.abyssalBackground],
+          ),
+        ),
+        child: TabBarView(
 
         controller: _tabController,
 
@@ -452,7 +462,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                     border: Border.all(
 
-                      color: const Color(0xFF6C63FF).withOpacity(0.4),
+                      color: PremiumTheme.neonCyan.withOpacity(0.4),
 
                       width: 1.5,
 
@@ -462,7 +472,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                       BoxShadow(
 
-                        color: const Color(0xFF6C63FF).withOpacity(_isPlaying ? 0.25 : 0.1),
+                        color: PremiumTheme.neonCyan.withOpacity(_isPlaying ? 0.25 : 0.1),
 
                         blurRadius: 35,
 
@@ -484,7 +494,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                         Icons.album_rounded,
 
-                        color: _isPlaying ? const Color(0xFFFF6584) : const Color(0xFF6C63FF),
+                        color: _isPlaying ? PremiumTheme.neonMagenta : PremiumTheme.neonCyan,
 
                         size: 50,
 
@@ -532,7 +542,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                   style: GoogleFonts.spaceMono(
 
-                    color: const Color(0xFF38F9D7),
+                    color: PremiumTheme.neonCyan,
 
                     fontSize: 10,
 
@@ -554,13 +564,13 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                   data: SliderTheme.of(context).copyWith(
 
-                    activeTrackColor: const Color(0xFF6C63FF),
+                    activeTrackColor: PremiumTheme.neonCyan,
 
                     inactiveTrackColor: const Color(0xFF1A1A2E),
 
-                    thumbColor: const Color(0xFF6C63FF),
+                    thumbColor: PremiumTheme.neonCyan,
 
-                    overlayColor: const Color(0xFF6C63FF).withOpacity(0.2),
+                    overlayColor: PremiumTheme.neonCyan.withOpacity(0.2),
 
                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
 
@@ -670,7 +680,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                           gradient: const LinearGradient(
 
-                            colors: [Color(0xFF6C63FF), Color(0xFFFF6584)],
+                            colors: [PremiumTheme.neonCyan, PremiumTheme.neonMagenta],
 
                           ),
 
@@ -678,7 +688,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                             BoxShadow(
 
-                              color: const Color(0xFF6C63FF).withOpacity(0.45),
+                              color: PremiumTheme.neonCyan.withOpacity(0.45),
 
                               blurRadius: 20,
 
@@ -752,7 +762,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                       child: OutlinedButton.icon(
 
-                        icon: const Icon(Icons.video_collection_rounded, size: 16, color: Color(0xFFFF6584)),
+                        icon: const Icon(Icons.video_collection_rounded, size: 16, color: PremiumTheme.neonMagenta),
 
                         label: Text(
 
@@ -786,7 +796,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                       child: OutlinedButton.icon(
 
-                        icon: const Icon(Icons.folder_zip_rounded, size: 16, color: Color(0xFF38F9D7)),
+                        icon: const Icon(Icons.folder_zip_rounded, size: 16, color: PremiumTheme.neonCyan),
 
                         label: Text(
 
@@ -834,19 +844,9 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                 // Rating Box
 
-                Container(
-
+                GlassCard(
+                  borderRadius: 16,
                   padding: const EdgeInsets.all(14),
-
-                  decoration: BoxDecoration(
-
-                    color: const Color(0xFF11111E),
-
-                    borderRadius: BorderRadius.circular(16),
-
-                    border: Border.all(color: const Color(0xFF222238)),
-
-                  ),
 
                   child: Row(
 
@@ -902,25 +902,15 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                 ? StemPlayerWidget(stemPaths: stems)
 
-                : Container(
-
+                : GlassCard(
+                    borderRadius: 20,
                     padding: const EdgeInsets.all(28),
-
-                    decoration: BoxDecoration(
-
-                      color: const Color(0xFF11111E),
-
-                      borderRadius: BorderRadius.circular(20),
-
-                      border: Border.all(color: const Color(0xFF222238)),
-
-                    ),
 
                     child: Column(
 
                       children: [
 
-                        const Icon(Icons.tune_rounded, color: Color(0xFF6C63FF), size: 44),
+                        const Icon(Icons.tune_rounded, color: PremiumTheme.neonCyan, size: 44),
 
                         const SizedBox(height: 12),
 
@@ -980,13 +970,13 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                       gradient: LinearGradient(
 
-                        colors: [const Color(0xFF6C63FF).withOpacity(0.2), const Color(0xFFFF6584).withOpacity(0.15)],
+                        colors: [PremiumTheme.neonCyan.withOpacity(0.2), PremiumTheme.neonMagenta.withOpacity(0.15)],
 
                       ),
 
                       borderRadius: BorderRadius.circular(18),
 
-                      border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.4)),
+                      border: Border.all(color: PremiumTheme.neonCyan.withOpacity(0.4)),
 
                     ),
 
@@ -994,7 +984,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
                       children: [
 
-                        const Icon(Icons.smart_toy_rounded, color: Color(0xFF6C63FF), size: 28),
+                        const Icon(Icons.smart_toy_rounded, color: PremiumTheme.neonCyan, size: 28),
 
                         const SizedBox(width: 14),
 
@@ -1082,6 +1072,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
       ),
 
+      ),
     );
 
   }

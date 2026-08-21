@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'glass_card.dart';
+import 'package:flutter/material.dart';
 import '../theme/premium_theme.dart';
 
 class NodeGraphEditor extends StatelessWidget {
@@ -6,14 +7,10 @@ class NodeGraphEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GlassCard(
       width: double.infinity,
       height: 300,
-      decoration: BoxDecoration(
-        color: PremiumTheme.backgroundBlack,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: PremiumTheme.surfaceElevated),
-      ),
+      borderRadius: 16,
       child: Stack(
         children: [
           // Simulated Cables
@@ -38,19 +35,11 @@ class AudioNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: PremiumTheme.surfaceDark,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: PremiumTheme.accentNeonPurple),
-        boxShadow: [
-          BoxShadow(
-            color: PremiumTheme.accentNeonPurple.withOpacity(0.3),
-            blurRadius: 10,
-          )
-        ]
-      ),
+      borderRadius: 12,
+      blur: 15.0,
+      color: PremiumTheme.neonCyan.withOpacity(0.05),
       child: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
     );
   }
@@ -59,24 +48,35 @@ class AudioNode extends StatelessWidget {
 class CablePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+        final glowPaint = Paint()
+      ..color = PremiumTheme.neonCyan.withOpacity(0.4)
+      ..strokeWidth = 6
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8)
+      ..style = PaintingStyle.stroke;
+
     final paint = Paint()
-      ..color = PremiumTheme.accentNeonGreen
-      ..strokeWidth = 3
+      ..color = PremiumTheme.neonCyan
+      ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
     final path = Path();
-    path.moveTo(140, 120);
-    path.quadraticBezierTo(170, 60, 200, 60);
+    // Synapse 1
+    path.moveTo(140, 124);
+    path.cubicTo(160, 124, 180, 64, 200, 64);
     
-    path.moveTo(140, 120);
-    path.quadraticBezierTo(170, 180, 200, 180);
+    // Synapse 2
+    path.moveTo(140, 124);
+    path.cubicTo(160, 124, 180, 184, 200, 184);
 
-    path.moveTo(300, 60);
-    path.quadraticBezierTo(330, 120, 360, 120);
+    // Synapse 3
+    path.moveTo(310, 64);
+    path.cubicTo(330, 64, 340, 124, 360, 124);
     
-    path.moveTo(300, 180);
-    path.quadraticBezierTo(330, 120, 360, 120);
+    // Synapse 4
+    path.moveTo(310, 184);
+    path.cubicTo(330, 184, 340, 124, 360, 124);
 
+    canvas.drawPath(path, glowPaint);
     canvas.drawPath(path, paint);
   }
 
