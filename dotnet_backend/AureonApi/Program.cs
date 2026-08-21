@@ -1,18 +1,23 @@
-using AureonApi.Services;
+﻿using AureonApi.Services;
+using AureonApi.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { Title = "Aureon AI Music API", Version = "v1" });
+    c.SwaggerDoc("v1", new() { Title = "Aureon AI Music API (Supercharged)", Version = "v2" });
 });
 
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials());
 });
 
 builder.Services.AddHttpClient<AudioServiceClient>(client =>
@@ -29,8 +34,11 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors();
+
 app.MapControllers();
+app.MapHub<MusicHub>("/hub/music");
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.Run();
+

@@ -3,9 +3,25 @@ import numpy as np
 import soundfile as sf
 import librosa
 import logging
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+# Scale interval definitions in semitones
+SCALES = {
+    "major": [0, 2, 4, 5, 7, 9, 11],
+    "minor": [0, 2, 3, 5, 7, 8, 10],
+    "harmonic_minor": [0, 2, 3, 5, 7, 8, 11],
+    "pentatonic": [0, 2, 4, 7, 9],
+    "dorian": [0, 2, 3, 5, 7, 9, 10],
+    "chromatic": list(range(12)),
+}
+
+NOTE_TO_SEMITONE = {
+    'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3,
+    'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8,
+    'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
+}
 
 
 def time_stretch_clip(y: np.ndarray, sr: int, target_duration: float) -> np.ndarray:
@@ -32,22 +48,31 @@ def pitch_shift_clip(y: np.ndarray, sr: int, semitones: float) -> np.ndarray:
         return librosa.effects.pitch_shift(y, sr=sr, n_steps=semitones)
 
 
-def autotune_clip(y: np.ndarray, sr: int, key_note: str = "C") -> np.ndarray:
-    major_scale_semitones = [0, 2, 4, 5, 7, 9, 11]
-    note_to_semitone = {
-        'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4,
-        'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9,
-        'A#': 10, 'B': 11
-    }
-    root = note_to_semitone.get(key_note.split()[0], 0)
-    scale_notes = set((root + s) % 12 for s in major_scale_semitones)
+def autotune_clip(
+    y: np.ndarray,
+    sr: int,
+    key_note: str = "C",
+    scale_type: str = "minor",
+    retune_speed: float = 0.1,  # 0.0 = Hard robotic (Travis/T-Pain), 1.0 = Natural
+) -> np.ndarray:
+    """
+    Scale-aware auto-tune with configurable quantization speed.
+    """
+    scale_intervals = SCALES.get(scale_type.lower(), SCALES["minor"])
+    note_name = key_note.split()[0].capitalize()
+    root = NOTE_TO_SEMITONE.get(note_name, 0)
+    scale_notes = set((root + s) % 12 for s in scale_intervals)
 
-    f0, voiced_flag, _ = librosa.pyin(
-        y,
-        fmin=librosa.note_to_hz('C2'),
-        fmax=librosa.note_to_hz('C7'),
-        sr=sr,
-    )
+    try:
+        f0, voiced_flag, _ = librosa.pyin(
+            y,
+            fmin=librosa.note_to_hz('C2'),
+            fmax=librosa.note_to_hz('C7'),
+            sr=sr,
+        )
+    except Exception as e:
+        logger.warning(f"pyin pitch detection failed: {e}")
+        return y
 
     if f0 is None or not np.any(voiced_flag):
         return y
@@ -59,8 +84,10 @@ def autotune_clip(y: np.ndarray, sr: int, key_note: str = "C") -> np.ndarray:
     for i, (freq, voiced) in enumerate(zip(f0, voiced_flag)):
         if not voiced or freq is None or np.isnan(freq):
             continue
+
         midi = librosa.hz_to_midi(freq)
         note_class = int(round(midi)) % 12
+
         if note_class not in scale_notes:
             closest = min(scale_notes, key=lambda n: min(abs(n - note_class), 12 - abs(n - note_class)))
             shift = closest - note_class
@@ -68,13 +95,17 @@ def autotune_clip(y: np.ndarray, sr: int, key_note: str = "C") -> np.ndarray:
                 shift -= 12
             elif shift < -6:
                 shift += 12
+
+            # Modulate shift intensity by retune speed
+            effective_shift = shift * (1.0 - (retune_speed * 0.4))
+
             start = i * hop_length
             end = min(start + frame_length, len(corrected))
             clip = corrected[start:end]
             if len(clip) > 0:
                 try:
                     import pyrubberband as pyrb
-                    corrected[start:end] = pyrb.pitch_shift(clip, sr, shift)[:end - start]
+                    corrected[start:end] = pyrb.pitch_shift(clip, sr, effective_shift)[:end - start]
                 except Exception:
                     pass
 

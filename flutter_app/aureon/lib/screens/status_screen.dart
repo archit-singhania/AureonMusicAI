@@ -1,8 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../services/api_service.dart';
@@ -18,22 +15,22 @@ class StatusScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0F),
+      backgroundColor: const Color(0xFF0A0A12),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Generating...',
-          style: GoogleFonts.spaceMono(color: Colors.white, fontSize: 16),
+          'Studio Pipeline',
+          style: GoogleFonts.spaceMono(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
         ),
       ),
       body: Consumer<GeneratorProvider>(
         builder: (context, provider, _) {
-          final status = provider.jobStatus;
+          final status = provider.status;
           final jobId = provider.currentJobId;
 
           if (status == null) {
@@ -41,16 +38,16 @@ class StatusScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SpinKitWave(
-                    color: const Color(0xFF6C63FF),
+                  const SpinKitWave(
+                    color: Color(0xFF6C63FF),
                     size: 40,
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Connecting...',
+                    'Connecting to DSP Engine...',
                     style: GoogleFonts.spaceMono(
-                      color: const Color(0xFF555566),
-                      fontSize: 14,
+                      color: const Color(0xFF8888AA),
+                      fontSize: 13,
                     ),
                   ),
                 ],
@@ -67,27 +64,25 @@ class StatusScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Big Status Indicator
                   Center(
                     child: Column(
                       children: [
                         if (!isDone && !isFailed)
-                          SpinKitPulse(
-                            color: const Color(0xFF6C63FF),
+                          const SpinKitPulse(
+                            color: Color(0xFF6C63FF),
                             size: 80,
                           )
                         else if (isDone)
                           Container(
                             width: 80,
                             height: 80,
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: const LinearGradient(
+                              gradient: LinearGradient(
                                 colors: [Color(0xFF6C63FF), Color(0xFF43E97B)],
                               ),
                             ),
-                            child: const Icon(Icons.check,
-                                color: Colors.white, size: 40),
+                            child: const Icon(Icons.check, color: Colors.white, size: 40),
                           )
                         else
                           Container(
@@ -97,8 +92,7 @@ class StatusScreen extends StatelessWidget {
                               shape: BoxShape.circle,
                               color: const Color(0xFFFF4444).withOpacity(0.2),
                             ),
-                            child: const Icon(Icons.error_outline,
-                                color: Color(0xFFFF4444), size: 40),
+                            child: const Icon(Icons.error_outline, color: Color(0xFFFF4444), size: 40),
                           ),
                         const SizedBox(height: 16),
                         Text(
@@ -109,7 +103,7 @@ class StatusScreen extends StatelessWidget {
                                 : isFailed
                                     ? const Color(0xFFFF4444)
                                     : Colors.white,
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -121,11 +115,12 @@ class StatusScreen extends StatelessWidget {
 
                   // Progress Bar
                   Text(
-                    'PROGRESS',
+                    'DSP PIPELINE PROGRESS',
                     style: GoogleFonts.spaceMono(
-                      color: const Color(0xFF555577),
+                      color: const Color(0xFF8888AA),
                       fontSize: 10,
-                      letterSpacing: 3,
+                      letterSpacing: 2,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -135,9 +130,7 @@ class StatusScreen extends StatelessWidget {
                       value: status.progress / 100,
                       backgroundColor: const Color(0xFF1A1A2E),
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        isDone
-                            ? const Color(0xFF43E97B)
-                            : const Color(0xFF6C63FF),
+                        isDone ? const Color(0xFF43E97B) : const Color(0xFF6C63FF),
                       ),
                       minHeight: 8,
                     ),
@@ -148,6 +141,7 @@ class StatusScreen extends StatelessWidget {
                     style: GoogleFonts.spaceMono(
                       color: const Color(0xFF6C63FF),
                       fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
 
@@ -158,29 +152,27 @@ class StatusScreen extends StatelessWidget {
 
                   const SizedBox(height: 28),
 
-                  // Critique Card (shown when available)
+                  // Critique Card
                   if (status.critique != null)
                     CritiqueCard(critique: status.critique!),
 
                   // Error
-                  if (isFailed && status.error != null) ...[
+                  if (isFailed && (status.error != null || provider.errorMessage != null)) ...[
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFF4444).withOpacity(0.1),
-                        border: Border.all(
-                            color: const Color(0xFFFF4444).withOpacity(0.3)),
+                        border: Border.all(color: const Color(0xFFFF4444).withOpacity(0.3)),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline,
-                              color: Color(0xFFFF4444), size: 20),
+                          const Icon(Icons.error_outline, color: Color(0xFFFF4444), size: 20),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              status.error!,
+                              status.error ?? provider.errorMessage ?? 'Unknown error',
                               style: GoogleFonts.spaceMono(
                                 color: const Color(0xFFFF4444),
                                 fontSize: 12,
@@ -192,7 +184,7 @@ class StatusScreen extends StatelessWidget {
                     ),
                   ],
 
-                  // Done — Play/Download
+                  // Done Actions
                   if (isDone && jobId != null) ...[
                     const SizedBox(height: 32),
                     _DoneActions(jobId: jobId),
@@ -217,22 +209,18 @@ class _DoneActions extends StatefulWidget {
 
 class _DoneActionsState extends State<_DoneActions> {
   bool _isDownloading = false;
-  String? _localPath;
   final _api = ApiService();
 
   Future<void> _downloadAndPlay() async {
     setState(() => _isDownloading = true);
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final path = '${dir.path}/aureon_${widget.jobId}.mp3';
-      await _api.downloadSong(widget.jobId, path);
-      setState(() => _localPath = path);
+      final downloadedPath = await _api.downloadSong(widget.jobId);
 
       if (mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => PlayerScreen(audioPath: path, jobId: widget.jobId),
+            builder: (_) => PlayerScreen(audioPath: downloadedPath, jobId: widget.jobId),
           ),
         );
       }
@@ -249,7 +237,6 @@ class _DoneActionsState extends State<_DoneActions> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Play Button
         SizedBox(
           width: double.infinity,
           height: 56,
@@ -264,12 +251,13 @@ class _DoneActionsState extends State<_DoneActions> {
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.play_arrow, size: 24),
+                : const Icon(Icons.play_arrow_rounded, size: 26),
             label: Text(
-              _isDownloading ? 'DOWNLOADING...' : 'PLAY YOUR SONG',
+              _isDownloading ? 'PREPARING MASTER...' : 'OPEN IN STUDIO PLAYER',
               style: GoogleFonts.spaceMono(
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
+                fontSize: 13,
               ),
             ),
             style: ElevatedButton.styleFrom(
@@ -282,7 +270,6 @@ class _DoneActionsState extends State<_DoneActions> {
           ),
         ),
         const SizedBox(height: 12),
-        // New Song button
         SizedBox(
           width: double.infinity,
           height: 50,
@@ -295,11 +282,11 @@ class _DoneActionsState extends State<_DoneActions> {
               ),
             ),
             child: Text(
-              'MAKE ANOTHER',
+              'MAKE ANOTHER TRACK',
               style: GoogleFonts.spaceMono(
-                color: const Color(0xFF555577),
+                color: const Color(0xFF8888AA),
                 letterSpacing: 1.5,
-                fontSize: 13,
+                fontSize: 12,
               ),
             ),
           ),

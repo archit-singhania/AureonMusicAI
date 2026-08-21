@@ -1,250 +1,113 @@
-# Aureon — AI Music Agent
+# Aureon — AI Music Studio (Supercharged Edition)
 
-Flutter · .NET 9 · Python · Anthropic API · FFmpeg · Coqui XTTS-v2
+Flutter · .NET 9 SignalR · Python · Sarvam AI · Coqui XTTS-v2 · Demucs 4-Stem Separation · FFmpeg & SoX DSP
 
-Upload a beat and lyrics → Aureon generates a fully mixed, auto-tuned vocal track in your chosen genre.
-
----
-
-## Stack
-
-| Layer | Tool | Port |
-|---|---|---|
-| Frontend | Flutter (iOS/Android/macOS) | — |
-| Backend | .NET 9 Web API | 5000 |
-| Audio Service | Python / FastAPI | 8000 |
-| Beat Analysis | Librosa + Essentia | — |
-| Vocal Synthesis | Coqui XTTS-v2 | — |
-| Pitch Correction | Rubber Band Library | — |
-| Mixing | FFmpeg | — |
-| AI Critic | Anthropic Claude | — |
+A studio-grade AI Music production suite with multimodal voice prompting, multilingual singing/rap synthesis, real-time stem mixing, and Spotify-standard mastering at **100% Zero-Cost**.
 
 ---
 
-## Folder Structure
+## 🚀 Key Features
+
+### 🎙️ 1. Sarvam AI Voice Producer & Multimodal STT/TTS
+- **Indian & Global Multilingual Flows**: Native Hindi, Hinglish, Punjabi, Tamil, and English vocal synthesis with natural inflections via Sarvam Bulbul API.
+- **Saaras Speech-to-Lyrics**: Hum or speak your musical idea; Aureon transcribes and structures it into rhythmic bars.
+- **Zero-Cost Fallback**: Automatic local fallback to Coqui XTTS-v2 and offline DSP models if no API key is present.
+
+### 🎛️ 2. Interactive 4-Stem Mini-DAW Player
+- **Demucs Stem Separation**: Isolates tracks into **Vocals**, **Drums**, **Bass**, and **Melody/Other**.
+- **Per-Channel Mixing**: Volume faders, Solo (`S`), and Mute (`M`) controls for every stem.
+- **Real-time Spectral FFT Visualizer**: Dynamic glowing multi-band audio visualizer synchronized to playback.
+
+### ✍️ 3. AI Lyricist Studio & Flow Meter
+- **Live Syllable Counter**: Real-time syllable-per-bar meter that ensures lyrics align with the BPM grid.
+- **AI Auto-Write**: Instant genre-specific lyric generation for Trap, Drill, Rap, R&B, and Pop.
+- **Preset Beat Explorer**: Built-in royalty-free starter beats for instant 1-tap generation.
+
+### ⚡ 4. Real-time SignalR Streaming (.NET 9 Gateway)
+- **Zero-Delay WebSocket Updates**: Replaces HTTP polling with ASP.NET Core 9 SignalR Hub (`/hub/music`).
+- **Granular Pipeline Progress**: Live milestone logs for analysis, stem separation, vocal synthesis, auto-tune, and mastering.
+
+### 🔊 5. Studio DSP Mastering Chain
+- **Scale-Aware Auto-Tune**: Minor, Major, Harmonic Minor, Pentatonic, and Dorian pitch correction with configurable retune speed.
+- **Vocal Pocket Sidechain Ducking**: Automatically ducks mid-frequencies on the beat when vocals hit.
+- **-14 LUFS Normalizer**: True peak limiting and EBU R128 loudness normalization for broadcast quality.
+
+---
+
+## 🏗️ Architecture
 
 ```
 Aureon/
-├── run_all.sh                  ← start everything
-├── logs/                       ← runtime logs
-├── beats/                      ← drop sample beats here
-├── outputs/                    ← generated tracks land here
-│
-├── python_audio_service/       ← Phase 1–4 pipeline
-│   ├── main.py                 ← FastAPI app + /generate endpoint
-│   ├── job_queue.py            ← async job runner
-│   ├── requirements.txt
-│   ├── setup.sh
-│   └── services/
-│       ├── beat_analysis/
-│       │   ├── analyzer.py     ← BPM, key, bar detection (Librosa)
-│       │   ├── flow_engine.py  ← genre-specific syllable flow templates
-│       │   └── syllable_mapper.py ← maps lyrics → beat grid
-│       ├── vocal_gen/
-│       │   └── synthesizer.py  ← Coqui XTTS-v2 vocal generation
-│       ├── pitch_correction/
-│       │   └── corrector.py    ← Rubber Band auto-tune
-│       └── mixing/
-│           └── mixer.py        ← FFmpeg EQ + reverb + master mix
-│
-├── dotnet_backend/             ← Phase 1 API layer
+├── dotnet_backend/             ← ASP.NET Core 9 Gateway
 │   └── AureonApi/
-│       ├── Program.cs          ← DI, CORS, Swagger setup
+│       ├── Hubs/
+│       │   └── MusicHub.cs     ← SignalR Real-time WebSocket Hub
 │       ├── Controllers/
-│       │   └── MusicController.cs  ← /generate, /status, /download
+│       │   └── MusicController.cs ← /generate, /presets, /voice/prompt, /stems
 │       ├── Models/Models.cs
 │       └── Services/
-│           ├── AudioServiceClient.cs  ← HTTP client → Python service
-│           └── JobCacheService.cs     ← in-memory job store
+│           ├── AudioServiceClient.cs
+│           └── JobCacheService.cs
 │
-└── flutter_app/aureon/         ← Phase 5 UI
+├── python_audio_service/       ← AI & DSP Microservice
+│   ├── main.py                 ← FastAPI app + WebSocket endpoints
+│   ├── job_queue.py            ← 7-stage asynchronous DSP job pipeline
+│   └── services/
+│       ├── vocal_gen/
+│       │   ├── sarvam_service.py ← Sarvam Bulbul TTS + Saaras STT
+│       │   └── synthesizer.py   ← Multi-engine vocal synthesizer
+│       ├── mixing/
+│       │   ├── stem_separator.py← Demucs v4 + DSP 4-stem separator
+│       │   └── mixer.py         ← Sidechain ducking & -14 LUFS mastering
+│       ├── pitch_correction/
+│       │   └── corrector.py     ← Scale-aware auto-tune (Travis/T-Pain styles)
+│       └── beat_analysis/
+│           ├── analyzer.py      ← Librosa BPM & key detection
+│           └── flow_engine.py   ← Syllable-beat alignment grid
+│
+└── flutter_app/aureon/         ← Cyberpunk Studio UI
     └── lib/
-        ├── main.dart           ← app entry point
-        ├── models/models.dart  ← JobStatus, GenerateResponse, etc.
+        ├── main.dart
+        ├── models/
+        │   ├── models.dart
+        │   └── preset_beats.dart← Built-in starter beats library
         ├── services/
-        │   ├── api_service.dart       ← Dio HTTP client → .NET backend
-        │   └── generator_provider.dart ← ChangeNotifier, poll loop
+        │   ├── api_service.dart
+        │   ├── generator_provider.dart
+        │   └── signalr_service.dart ← WebSocket live tracking
         ├── screens/
-        │   ├── home_screen.dart    ← beat upload + lyrics + genre
-        │   ├── status_screen.dart  ← live pipeline progress
-        │   ├── player_screen.dart  ← audio player + star rating
-        │   └── history_screen.dart ← Phase 6 feedback loop
+        │   ├── home_screen.dart ← Cyberpunk studio & AI lyricist
+        │   ├── status_screen.dart ← Granular DSP step progress
+        │   ├── player_screen.dart ← Master player & Mini-DAW
+        │   └── history_screen.dart
         └── widgets/
-            ├── genre_chip.dart       ← animated genre selector
-            ├── waveform_bar.dart     ← animated waveform animation
-            ├── progress_stepper.dart ← pipeline step tracker
-            └── critique_card.dart   ← AI critic results display
+            ├── stem_player_widget.dart ← 4-channel mini-DAW mixer
+            ├── spectral_visualizer.dart← Real-time spectral FFT visualizer
+            ├── voice_assistant_modal.dart ← Pulsing Sarvam voice orb
+            └── syllable_counter_bar.dart ← Syllable flow meter
 ```
 
 ---
 
-## Quick Start
+## ⚙️ Environment Configuration (Optional)
 
-### Prerequisites
-
-- Python 3.11+
-- .NET 9 SDK
-- Flutter 3.22+
-- FFmpeg (`brew install ffmpeg` / `apt install ffmpeg`)
-- Rubber Band CLI (`brew install rubberband`)
-
-### Run everything
-
-```bash
-cd ~/Documents/Aureon
-chmod +x run_all.sh
-./run_all.sh
-```
-
-This starts:
-- Python microservice on `http://localhost:8000`
-- .NET API on `http://localhost:5000`
-- Flutter app on your connected device/emulator
-
-To run backend only (no Flutter):
-```bash
-./run_all.sh --no-flutter
-```
-
-### First-time Python setup
-
-```bash
-cd python_audio_service
-chmod +x setup.sh && ./setup.sh
-```
-
-### First-time .NET setup
-
-```bash
-cd dotnet_backend
-chmod +x setup.sh && ./setup.sh
-```
-
----
-
-## API Endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/music/generate` | Submit beat + lyrics → returns `job_id` |
-| `GET` | `/api/music/status/{jobId}` | Poll job progress (0–100%) |
-| `GET` | `/api/music/download/{jobId}` | Stream finished MP3 |
-| `GET` | `/api/music/health` | Health check |
-
-### Generate Request (multipart/form-data)
-
-```
-beat        → audio file (MP3/WAV/FLAC)
-lyrics      → plain text
-genre       → trap | drill | rap | rnb | pop
-speakerWav  → optional reference voice WAV (for XTTS cloning)
-```
-
-### Status Response
-
-```json
-{
-  "job_id": "abc-123",
-  "status": "mixing",
-  "progress": 80,
-  "output_ready": false,
-  "critique": {
-    "score": 0.82,
-    "on_beat_ratio": 0.91,
-    "approved": true,
-    "issues": [],
-    "overflow_lines": []
-  }
-}
-```
-
----
-
-## Pipeline (per job)
-
-```
-Beat upload
-    │
-    ▼
-[analyzer.py]      BPM, key, time sig, bar boundaries
-    │
-    ▼
-[syllable_mapper]  Map each lyric line → beat grid slots
-    │
-    ▼
-[flow_engine]      Genre flow template → 3 timing candidates
-    │
-    ▼
-[synthesizer]      Coqui XTTS-v2 → raw vocal WAV × 3
-    │
-    ▼
-[AI Critic]        Claude evaluates on-beat ratio, overflow
-    │              → picks best candidate
-    ▼
-[corrector]        Rubber Band pitch correction / auto-tune
-    │
-    ▼
-[mixer]            FFmpeg: EQ + compression + reverb + mix with beat
-    │
-    ▼
-outputs/{jobId}.mp3
-```
-
----
-
-## Phases
-
-| Phase | Status | Description |
-|---|---|---|
-| 1 — Core Pipeline | ✅ | Python service, .NET API, basic synthesis |
-| 2 — Flow Engine | ✅ | Syllable-beat alignment, genre templates, 3 candidates |
-| 3 — AI Critic | ✅ | Claude evaluates and selects best candidate |
-| 4 — Auto-tune + Mixing | ✅ | Rubber Band + FFmpeg EQ/reverb/master |
-| 5 — Flutter UI | ✅ | Upload → Generate → Play → Download |
-| 6 — Quality Loop | ✅ | Star ratings, history, CSV feedback export |
-
----
-
-## Environment Variables
-
-Set in `python_audio_service/.env` (optional):
-
+In `python_audio_service/.env`:
 ```env
-ANTHROPIC_API_KEY=sk-ant-...      # for AI Critic agent
+SARVAM_API_KEY=your_sarvam_key_here    # (Optional) For multilingual Indian/Global singing & STT
+ANTHROPIC_API_KEY=your_claude_key      # (Optional) For AI critic agent
 OUTPUTS_DIR=../outputs
 TEMP_DIR=./temp
-MAX_CONCURRENT_JOBS=3
 ```
-
-Set in `dotnet_backend/AureonApi/appsettings.json`:
-
-```json
-{
-  "AudioService": { "BaseUrl": "http://localhost:8000" },
-  "Urls": "http://0.0.0.0:5000"
-}
-```
+*Note: If no API keys are provided, the system seamlessly runs 100% locally and offline at $0 cost.*
 
 ---
 
-## Performance Notes
+## 🚀 Running Aureon
 
-- **Rap / Drill / Trap**: fastest — low pitch precision needed, CPU viable (~30–90s)
-- **R&B / Pop**: slower — melodic synthesis is compute-heavy (~2–5 min on CPU)
-- GPU (CUDA/MPS): reduces synthesis from minutes → seconds
-- Rubber Band + FFmpeg: CPU-only, always fast
+```bash
+# Start all microservices and frontend:
+./run_all.sh
 
----
-
-## Phase 6 — Feedback Dataset
-
-Every rated track is stored locally. From the History screen, tap **Export** to generate `aureon_feedback_<timestamp>.csv`:
-
-```csv
-jobId,rating,timestamp,path
-abc-123,5,2025-01-15T14:32:00,/path/to/aureon_abc-123.mp3
-def-456,3,2025-01-15T15:10:00,/path/to/aureon_def-456.mp3
+# Or start backend services only:
+./run_all.sh --no-flutter
 ```
-
-Use this CSV to fine-tune flow templates or re-rank candidate selection over time.
-# AureonMusicAI

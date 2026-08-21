@@ -9,16 +9,18 @@ class ProgressStepper extends StatelessWidget {
 
   static const _steps = [
     (status: JobStatus.analyzing, label: 'Beat Analysis', icon: Icons.graphic_eq),
-    (status: JobStatus.generatingFlow, label: 'Flow Engine', icon: Icons.auto_awesome),
-    (status: JobStatus.synthesizing, label: 'Vocal Synthesis', icon: Icons.record_voice_over),
-    (status: JobStatus.correcting, label: 'Auto-Tune', icon: Icons.tune),
-    (status: JobStatus.mixing, label: 'Mixing', icon: Icons.equalizer),
-    (status: JobStatus.done, label: 'Complete', icon: Icons.check_circle_outline),
+    (status: JobStatus.separatingStems, label: 'Stem Separation (Demucs)', icon: Icons.layers_rounded),
+    (status: JobStatus.generatingFlow, label: 'AI Flow Engine', icon: Icons.auto_awesome),
+    (status: JobStatus.synthesizing, label: 'Sarvam / Neural Vocal Gen', icon: Icons.record_voice_over),
+    (status: JobStatus.correcting, label: 'Auto-Tune & Scale Pitch Lock', icon: Icons.tune),
+    (status: JobStatus.mixing, label: 'Sidechain & -14 LUFS Mastering', icon: Icons.equalizer),
+    (status: JobStatus.done, label: 'Studio Master Ready', icon: Icons.check_circle_outline),
   ];
 
   static const _statusOrder = [
     JobStatus.queued,
     JobStatus.analyzing,
+    JobStatus.separatingStems,
     JobStatus.generatingFlow,
     JobStatus.synthesizing,
     JobStatus.correcting,
@@ -40,11 +42,12 @@ class ProgressStepper extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'PIPELINE',
+          'REAL-TIME DSP PIPELINE',
           style: GoogleFonts.spaceMono(
-            color: const Color(0xFF555577),
+            color: const Color(0xFF8888AA),
             fontSize: 10,
-            letterSpacing: 3,
+            letterSpacing: 2,
+            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 14),
@@ -53,10 +56,9 @@ class ProgressStepper extends StatelessWidget {
           final stepOrderIdx = _statusOrder.indexOf(step.status);
           final isDone = stepOrderIdx < currentIdx;
           final isActive = step.status == currentStatus && !isFailed;
-          final isFuture = stepOrderIdx > currentIdx;
           final isFailedStep = isFailed && isActive;
 
-          final color = isFailed && isActive
+          final color = isFailedStep
               ? const Color(0xFFFF4444)
               : isDone
                   ? const Color(0xFF43E97B)
@@ -68,13 +70,12 @@ class ProgressStepper extends StatelessWidget {
               ? const Color(0xFF43E97B)
               : isActive
                   ? Colors.white
-                  : const Color(0xFF444455);
+                  : const Color(0xFF555566);
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(
               children: [
-                // Connector line + icon column
                 Column(
                   children: [
                     Container(
@@ -82,7 +83,7 @@ class ProgressStepper extends StatelessWidget {
                       height: 32,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: color.withOpacity(isDone || isActive ? 0.15 : 0.05),
+                        color: color.withOpacity(isDone || isActive ? 0.2 : 0.05),
                         border: Border.all(color: color, width: isDone || isActive ? 1.5 : 1),
                       ),
                       child: Icon(
@@ -111,19 +112,18 @@ class ProgressStepper extends StatelessWidget {
                           step.label,
                           style: GoogleFonts.spaceMono(
                             color: textColor,
-                            fontSize: 13,
-                            fontWeight:
-                                isActive ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                         if (isActive && !isFailed) ...[
                           const SizedBox(width: 8),
-                          SizedBox(
+                          const SizedBox(
                             width: 12,
                             height: 12,
                             child: CircularProgressIndicator(
                               strokeWidth: 1.5,
-                              color: const Color(0xFF6C63FF),
+                              color: Color(0xFF6C63FF),
                             ),
                           ),
                         ],

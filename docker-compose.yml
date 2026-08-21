@@ -1,0 +1,44 @@
+﻿version: '3.8'
+
+services:
+  python_audio:
+    build:
+      context: ./python_audio_service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./outputs:/app/outputs
+      - ./python_audio_service/temp:/app/python_audio_service/temp
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Add hardware acceleration if available (CUDA)
+      # deploy:
+      #   resources:
+      #     reservations:
+      #       devices:
+      #         - driver: nvidia
+      #           count: 1
+      #           capabilities: [gpu]
+
+  dotnet_api:
+    build:
+      context: ./dotnet_backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+    depends_on:
+      - python_audio
+
+  flutter_ui:
+    build:
+      context: ./flutter_app
+      dockerfile: Dockerfile
+    ports:
+      - "3005:80"
+    depends_on:
+      - dotnet_api
+
