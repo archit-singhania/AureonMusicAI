@@ -1,0 +1,105 @@
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:aureon/studio_model.dart';
+import 'package:aureon/studio_ui.dart';
+
+void main() {
+  final previousError = FlutterError.onError;
+  FlutterError.onError = (details) {
+    FlutterError.dumpErrorToConsole(details);
+    previousError?.call(details);
+  };
+
+  for (final width in [390.0, 1440.0]) {
+    testWidgets('Responsive workspace at $width has usable navigation', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final originalHandler = FlutterError.onError;
+      FlutterError.onError = (details) {
+        FlutterError.dumpErrorToConsole(details);
+        originalHandler?.call(details);
+      };
+      final model = StudioModel(start: false);
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(value: model, child: const AureonApp()),
+      );
+      await tester.pump();
+      expect(find.text('Make room\nfor your sound.'), findsOneWidget);
+      expect(find.text('Try the studio'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Library').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Your sound, collected.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Settings').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Reduce motion'), findsOneWidget);
+      expect(find.text('Reduce transparency'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      model.dispose();
+    });
+  }
+  for (final width in [390.0, 840.0, 1440.0]) {
+    testWidgets('Editable studio has no overflow at $width', (tester) async {
+      tester.view.physicalSize = Size(width, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final model = StudioModel(start: false);
+      model.current = {
+        'id': 'test-session',
+        'title': 'Afterglow Sessions',
+        'lyrics': 'A little light in the midnight air',
+        'genre': 'rnb',
+        'preset_id': 'afterglow',
+        'bpm': 88,
+        'key': 'A minor',
+        'language': 'en-IN',
+        'engine': 'instrumental',
+        'params': {
+          'vocals_gain': .8,
+          'drums_gain': .85,
+          'bass_gain': .8,
+          'other_gain': .8,
+          'saturation': .1,
+          'delay_mix': .1,
+          'stereo_width': .5,
+          'de_esser': .2,
+          'target_lufs': -14,
+        },
+      };
+      model.themeMode = ThemeMode.dark;
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(value: model, child: const AureonApp()),
+      );
+      await tester.pump();
+      expect(find.text('Your master'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.drag(
+        find.byType(SingleChildScrollView).first,
+        const Offset(0, -700),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      model.dispose();
+    });
+  }
+  test('Captured PCM has a valid WAV header and exact sample payload', () {
+    final pcm = Uint8List.fromList([0, 0, 100, 0, 200, 0]);
+    final bytes = pcmWav(pcm);
+    final header = ByteData.sublistView(bytes);
+    expect(String.fromCharCodes(bytes.sublist(0, 4)), 'RIFF');
+    expect(String.fromCharCodes(bytes.sublist(8, 12)), 'WAVE');
+    expect(header.getUint32(24, Endian.little), 44100);
+    expect(header.getUint32(40, Endian.little), pcm.length);
+    expect(bytes.sublist(44), pcm);
+  });
+}

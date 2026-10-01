@@ -1,0 +1,10 @@
+**/venv
+**/.runtime
+**/bin
+**/obj
+**/build
+**/.dart_tool
+.git
+data
+legacy
+logs

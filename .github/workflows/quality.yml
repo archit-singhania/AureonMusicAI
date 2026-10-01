@@ -1,0 +1,40 @@
+name: Aureon quality
+on: [push, pull_request]
+jobs:
+  audio-and-gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12', cache: pip, cache-dependency-path: python_audio_service/requirements-dev.txt}
+      - uses: actions/setup-dotnet@v4
+        with: {dotnet-version: '10.0.x'}
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg libsndfile1
+      - run: pip install -r python_audio_service/requirements-dev.txt
+      - run: pytest tests/test_studio.py -q
+      - run: dotnet build dotnet_backend/AureonApi/AureonApi.csproj -c Release
+      - name: Gateway and live-event journey
+        env:
+          AUREON_INTERNAL_KEY: ci-local-only-key
+          AUREON_GATEWAY_URL: http://localhost:5000
+        run: |
+          (cd python_audio_service && uvicorn main:app --host 127.0.0.1 --port 8000) > /tmp/aureon-python.log 2>&1 &
+          dotnet run --no-build -c Release --project dotnet_backend/AureonApi --urls http://localhost:5000 > /tmp/aureon-dotnet.log 2>&1 &
+          for attempt in $(seq 1 40); do curl -sf http://localhost:5000/health && curl -sf http://localhost:8000/health && break; sleep 1; done
+          pytest tests/test_gateway.py -q
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, flutter-version: '3.47.3', cache: true}
+      - working-directory: flutter_app/aureon
+        run: flutter pub get
+      - working-directory: flutter_app/aureon
+        run: flutter analyze
+      - working-directory: flutter_app/aureon
+        run: flutter test
+      - working-directory: flutter_app/aureon
+        run: flutter build web --release
+      - uses: actions/upload-artifact@v4
+        with: {name: aureon-web, path: flutter_app/aureon/build/web}

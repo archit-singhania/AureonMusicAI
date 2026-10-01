@@ -1,44 +1,50 @@
-﻿version: '3.8'
-
 services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: aureon
+      POSTGRES_USER: aureon
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U aureon]
+      interval: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, 'yes']
+    volumes: [redis_data:/data]
   python_audio:
-    build:
-      context: ./python_audio_service
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./outputs:/app/outputs
-      - ./python_audio_service/temp:/app/python_audio_service/temp
+    build: ./python_audio_service
     environment:
-      - PYTHONUNBUFFERED=1
-      # Add hardware acceleration if available (CUDA)
-      # deploy:
-      #   resources:
-      #     reservations:
-      #       devices:
-      #         - driver: nvidia
-      #           count: 1
-      #           capabilities: [gpu]
-
+      DATABASE_URL: postgresql+psycopg://aureon:${POSTGRES_PASSWORD}@postgres/aureon
+      REDIS_URL: redis://redis:6379/0
+      AUREON_DATA_DIR: /app/data
+      AUREON_INTERNAL_KEY: ${AUREON_INTERNAL_KEY:?Set AUREON_INTERNAL_KEY in .env}
+      AUREON_ORIGINS: ${AUREON_ORIGINS:-http://localhost:3005}
+      SARVAM_API_KEY: ${SARVAM_API_KEY:-}
+      OLLAMA_URL: ${OLLAMA_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    volumes: [studio_data:/app/data]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
   dotnet_api:
-    build:
-      context: ./dotnet_backend
-      dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
+    build: ./dotnet_backend
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:5000
-    depends_on:
-      - python_audio
-
+      AudioService__BaseUrl: http://python_audio:8000
+      AUREON_INTERNAL_KEY: ${AUREON_INTERNAL_KEY:?Set AUREON_INTERNAL_KEY in .env}
+      AllowedOrigins: ${AUREON_ORIGINS:-http://localhost:3005}
+    depends_on: [python_audio]
   flutter_ui:
-    build:
-      context: ./flutter_app
-      dockerfile: Dockerfile
-    ports:
-      - "3005:80"
-    depends_on:
-      - dotnet_api
-
+    build: ./flutter_app
+    ports: [3005:80]
+    depends_on: [dotnet_api]
+volumes:
+  postgres_data:
+  redis_data:
+  studio_data:

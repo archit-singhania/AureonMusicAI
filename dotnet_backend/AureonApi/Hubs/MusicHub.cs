@@ -1,56 +1,50 @@
-﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR;
+using AureonApi.Services;
+using System.Text.Json;
 
 namespace AureonApi.Hubs;
 
-public interface IMusicClient
+public class MusicHub(IHttpClientFactory factory, StudioConnections connections) : Hub
 {
-    Task OnJobProgress(string jobId, string status, int progress, object? critique);
-    Task OnJobCompleted(string jobId, string downloadUrl, object? stems);
-    Task OnJobFailed(string jobId, string error);
-    
-    // Multiplayer methods
-    Task OnParameterChanged(string userId, string parameter, double value);
-    Task OnUserJoinedRoom(string userId);
-    Task OnUserLeftRoom(string userId);
-}
-
-public class MusicHub : Hub<IMusicClient>
-{
-    private readonly ILogger<MusicHub> _logger;
-
-    public MusicHub(ILogger<MusicHub> logger)
+    private async Task<JsonElement> Authorized(string route)
     {
-        _logger = logger;
+        var token = Context.GetHttpContext()?.Request.Query["access_token"].ToString();
+        if (string.IsNullOrWhiteSpace(token)) throw new HubException("Sign in to join a session.");
+        using var request = new HttpRequestMessage(HttpMethod.Get, route);
+        request.Headers.Authorization = new("Bearer", token);
+        using var response = await factory.CreateClient("Audio").SendAsync(request);
+        if (!response.IsSuccessStatusCode) throw new HubException("You do not have access to this session.");
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return json.RootElement.Clone();
     }
-
-    public async Task JoinJobGroup(string jobId)
+    public override async Task OnConnectedAsync()
     {
-        await Groups.AddToGroupAsync(Context.ConnectionId, "job_{jobId}");
-        _logger.LogInformation("Client {ConnectionId} joined job group {JobId}", Context.ConnectionId, jobId);
+        var user = await Authorized("/api/v1/auth/me");
+        Context.Items["user_id"] = user.GetProperty("id").GetString();
+        Context.Items["name"] = user.GetProperty("name").GetString();
+        await base.OnConnectedAsync();
     }
-
-    public async Task LeaveJobGroup(string jobId)
+    public async Task JoinProject(string projectId)
     {
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, "job_{jobId}");
+        if (!Guid.TryParse(projectId, out _)) throw new HubException("Invalid project.");
+        await Authorized($"/api/v1/projects/{projectId}");
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"project_{projectId}");
+        Context.Items["project"] = projectId;
+        connections.Active[Context.ConnectionId] = new(Context.ConnectionId, projectId, Context.GetHttpContext()!.Request.Query["access_token"].ToString());
+        await Clients.OthersInGroup($"project_{projectId}").SendAsync("Presence", new { user_id = Context.Items["user_id"], name = Context.Items["name"], connected = true });
     }
-    
-    // Multiplayer Room Methods
-    public async Task JoinStudioRoom(string roomId, string userId)
+    public async Task LeaveProject(string projectId)
     {
-        await Groups.AddToGroupAsync(Context.ConnectionId, "room_{roomId}");
-        await Clients.OthersInGroup("room_{roomId}").OnUserJoinedRoom(userId);
-        _logger.LogInformation("User {UserId} joined studio room {RoomId}", userId, roomId);
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"project_{projectId}");
+        Context.Items.Remove("project");
+        connections.Active.TryRemove(Context.ConnectionId, out _);
+        await Clients.OthersInGroup($"project_{projectId}").SendAsync("Presence", new { user_id = Context.Items["user_id"], name = Context.Items["name"], connected = false });
     }
-
-    public async Task LeaveStudioRoom(string roomId, string userId)
+    public override async Task OnDisconnectedAsync(Exception? error)
     {
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, "room_{roomId}");
-        await Clients.OthersInGroup("room_{roomId}").OnUserLeftRoom(userId);
-    }
-
-    public async Task BroadcastParameterChange(string roomId, string userId, string parameter, double value)
-    {
-        // Broadcast DSP parameter tweaks (e.g. tape saturation slider moved)
-        await Clients.OthersInGroup("room_{roomId}").OnParameterChanged(userId, parameter, value);
+        connections.Active.TryRemove(Context.ConnectionId, out _);
+        if (Context.Items.TryGetValue("project", out var value) && value is string project)
+            await Clients.OthersInGroup($"project_{project}").SendAsync("Presence", new { user_id = Context.Items["user_id"], name = Context.Items["name"], connected = false });
+        await base.OnDisconnectedAsync(error);
     }
 }

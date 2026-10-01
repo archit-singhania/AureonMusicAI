@@ -1,11 +1,8 @@
-﻿FROM ghcr.io/cirruslabs/flutter:stable AS build
+FROM ghcr.io/cirruslabs/flutter:3.47.3 AS build
 WORKDIR /app
-COPY aureon/pubspec.* ./
-RUN flutter pub get
 COPY aureon/ ./
-RUN flutter create . --platforms web
-RUN flutter build web
-
-FROM nginx:alpine
+RUN flutter pub get && flutter build web --release --dart-define=API_BASE_URL=
+FROM nginx:1.27-alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build/web /usr/share/nginx/html
 EXPOSE 80
