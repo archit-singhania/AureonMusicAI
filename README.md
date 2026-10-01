@@ -1,113 +1,55 @@
-# Aureon — AI Music Studio (Supercharged Edition)
+# Aureon Music Studio
 
-Flutter · .NET 9 SignalR · Python · Sarvam AI · Coqui XTTS-v2 · Demucs 4-Stem Separation · FFmpeg & SoX DSP
+A private music workspace built with Flutter, ASP.NET Core 10, and Python DSP. Compose an original instrumental, add your own recording, shape a four-stem mix, compare masters, and export real media from a versioned session.
 
-A studio-grade AI Music production suite with multimodal voice prompting, multilingual singing/rap synthesis, real-time stem mixing, and Spotify-standard mastering at **100% Zero-Cost**.
+The interface uses an original A/soundwave identity, pearl and graphite palettes, restrained glass navigation, responsive layouts, and accessible motion/transparency controls. All waveforms, spectrum frames, loudness readings, progress events, and downloads come from actual processing.
 
----
+## Start locally
 
-## 🚀 Key Features
+Use Python 3.12, .NET SDK 10, Flutter 3.47.3, and FFmpeg. The production core has no GPU or model-download requirement. Optional ML experiments remain outside the core workflow.
 
-### 🎙️ 1. Sarvam AI Voice Producer & Multimodal STT/TTS
-- **Indian & Global Multilingual Flows**: Native Hindi, Hinglish, Punjabi, Tamil, and English vocal synthesis with natural inflections via Sarvam Bulbul API.
-- **Saaras Speech-to-Lyrics**: Hum or speak your musical idea; Aureon transcribes and structures it into rhythmic bars.
-- **Zero-Cost Fallback**: Automatic local fallback to Coqui XTTS-v2 and offline DSP models if no API key is present.
-
-### 🎛️ 2. Interactive 4-Stem Mini-DAW Player
-- **Demucs Stem Separation**: Isolates tracks into **Vocals**, **Drums**, **Bass**, and **Melody/Other**.
-- **Per-Channel Mixing**: Volume faders, Solo (`S`), and Mute (`M`) controls for every stem.
-- **Real-time Spectral FFT Visualizer**: Dynamic glowing multi-band audio visualizer synchronized to playback.
-
-### ✍️ 3. AI Lyricist Studio & Flow Meter
-- **Live Syllable Counter**: Real-time syllable-per-bar meter that ensures lyrics align with the BPM grid.
-- **AI Auto-Write**: Instant genre-specific lyric generation for Trap, Drill, Rap, R&B, and Pop.
-- **Preset Beat Explorer**: Built-in royalty-free starter beats for instant 1-tap generation.
-
-### ⚡ 4. Real-time SignalR Streaming (.NET 9 Gateway)
-- **Zero-Delay WebSocket Updates**: Replaces HTTP polling with ASP.NET Core 9 SignalR Hub (`/hub/music`).
-- **Granular Pipeline Progress**: Live milestone logs for analysis, stem separation, vocal synthesis, auto-tune, and mastering.
-
-### 🔊 5. Studio DSP Mastering Chain
-- **Scale-Aware Auto-Tune**: Minor, Major, Harmonic Minor, Pentatonic, and Dorian pitch correction with configurable retune speed.
-- **Vocal Pocket Sidechain Ducking**: Automatically ducks mid-frequencies on the beat when vocals hit.
-- **-14 LUFS Normalizer**: True peak limiting and EBU R128 loudness normalization for broadcast quality.
-
----
-
-## 🏗️ Architecture
-
-```
-Aureon/
-├── dotnet_backend/             ← ASP.NET Core 9 Gateway
-│   └── AureonApi/
-│       ├── Hubs/
-│       │   └── MusicHub.cs     ← SignalR Real-time WebSocket Hub
-│       ├── Controllers/
-│       │   └── MusicController.cs ← /generate, /presets, /voice/prompt, /stems
-│       ├── Models/Models.cs
-│       └── Services/
-│           ├── AudioServiceClient.cs
-│           └── JobCacheService.cs
-│
-├── python_audio_service/       ← AI & DSP Microservice
-│   ├── main.py                 ← FastAPI app + WebSocket endpoints
-│   ├── job_queue.py            ← 7-stage asynchronous DSP job pipeline
-│   └── services/
-│       ├── vocal_gen/
-│       │   ├── sarvam_service.py ← Sarvam Bulbul TTS + Saaras STT
-│       │   └── synthesizer.py   ← Multi-engine vocal synthesizer
-│       ├── mixing/
-│       │   ├── stem_separator.py← Demucs v4 + DSP 4-stem separator
-│       │   └── mixer.py         ← Sidechain ducking & -14 LUFS mastering
-│       ├── pitch_correction/
-│       │   └── corrector.py     ← Scale-aware auto-tune (Travis/T-Pain styles)
-│       └── beat_analysis/
-│           ├── analyzer.py      ← Librosa BPM & key detection
-│           └── flow_engine.py   ← Syllable-beat alignment grid
-│
-└── flutter_app/aureon/         ← Cyberpunk Studio UI
-    └── lib/
-        ├── main.dart
-        ├── models/
-        │   ├── models.dart
-        │   └── preset_beats.dart← Built-in starter beats library
-        ├── services/
-        │   ├── api_service.dart
-        │   ├── generator_provider.dart
-        │   └── signalr_service.dart ← WebSocket live tracking
-        ├── screens/
-        │   ├── home_screen.dart ← Cyberpunk studio & AI lyricist
-        │   ├── status_screen.dart ← Granular DSP step progress
-        │   ├── player_screen.dart ← Master player & Mini-DAW
-        │   └── history_screen.dart
-        └── widgets/
-            ├── stem_player_widget.dart ← 4-channel mini-DAW mixer
-            ├── spectral_visualizer.dart← Real-time spectral FFT visualizer
-            ├── voice_assistant_modal.dart ← Pulsing Sarvam voice orb
-            └── syllable_counter_bar.dart ← Syllable flow meter
+```powershell
+python -m venv .runtime
+.runtime\Scripts\python -m pip install -r python_audio_service/requirements-dev.txt
+# Install FFmpeg on PATH, or use the optional portable resolver:
+.runtime\Scripts\python -m pip install imageio-ffmpeg
+.\start-local.ps1 -Python "$PWD\.runtime\Scripts\python.exe"
+cd flutter_app/aureon
+flutter pub get
+flutter run -d chrome --web-port 3005 --dart-define=API_BASE_URL=http://localhost:5000
 ```
 
----
+Open the studio and choose **Try the studio**. This creates an isolated account, a persistent session, and an actual queued instrumental render. Create a named account to retain access across browser sessions. Browser access tokens are held in memory; native tokens use platform secure storage. Browser drafts are saved on the current device and recovered for the same account/project revision.
 
-## ⚙️ Environment Configuration (Optional)
+Services: Flutter 3005, .NET gateway 5000, Python worker/API 8103. `start-local.ps1` shares a random internal outbox key between services. Use separate terminals with `AUREON_INTERNAL_KEY` set to the same value for troubleshooting. SQLite and private media are stored under ignored `data/`; never delete it to update code. Configure `AUREON_DATA_DIR` to relocate it.
 
-In `python_audio_service/.env`:
-```env
-SARVAM_API_KEY=your_sarvam_key_here    # (Optional) For multilingual Indian/Global singing & STT
-ANTHROPIC_API_KEY=your_claude_key      # (Optional) For AI critic agent
-OUTPUTS_DIR=../outputs
-TEMP_DIR=./temp
+## Container stack
+
+Copy `.env.example` to `.env`, supply a Postgres password and an internal key, then run `docker compose up --build`. Open `http://localhost:3005`. The stack includes Postgres, Redis, Python/FFmpeg, .NET, and nginx/Flutter. Only the UI port is published. Named volumes retain database, queue, signing key, and media data. Container definitions are supplied; this workspace did not have Docker available to execute them.
+
+For an existing public hosting account, use the target mapping and environment instructions in [HOSTING.md](docs/HOSTING.md). The frontend hosting configuration is prepared; no public destination is linked or deployed yet.
+
+## Capabilities and evidence
+
+See [the 20-capability matrix](docs/CAPABILITIES.md), [architecture](docs/ARCHITECTURE.md), [verification record](docs/VERIFICATION.md), and [portfolio walkthrough](docs/PORTFOLIO.md). The core is runnable without paid providers. Sarvam speech/transcription requires a key; lyric assistance requires a running Ollama model; XTTS is optional and unverified in this environment. Imported stems use approximate spectral DSP, while generated presets have original instrument stems. Speech synthesis is explicitly speech, not AI singing.
+
+```powershell
+.runtime\Scripts\python -m pytest tests/test_studio.py tests/test_providers.py -q
+dotnet build dotnet_backend/AureonApi -c Release
+$env:AUREON_GATEWAY_URL='http://localhost:5000'
+.runtime\Scripts\python -m pytest tests/test_gateway.py -q
+cd flutter_app/aureon
+flutter analyze
+flutter test
+flutter build web --release
 ```
-*Note: If no API keys are provided, the system seamlessly runs 100% locally and offline at $0 cost.*
 
----
+Android, iOS, web, and Windows runners and original launcher icons are included. Web has been built and tested here. Native microphone/audio/filesystem flows need actual-device verification; iOS needs macOS/Xcode, Android needs an Android toolchain, and this Windows host requires Developer Mode for native plugin symlinks.
 
-## 🚀 Running Aureon
+## Optional providers
 
-```bash
-# Start all microservices and frontend:
-./run_all.sh
+Configure `SARVAM_API_KEY` for Bulbul v3 speech and Saaras v3 transcription. The adapters use the official [TTS](https://docs.sarvam.ai/api-reference/text-to-speech/convert) and [STT](https://docs.sarvam.ai/api-reference/speech-to-text/transcribe) contracts and never replace errors with generated placeholders. Provider contract tests use synthetic HTTP responses; no paid provider call was made during verification.
 
-# Or start backend services only:
-./run_all.sh --no-flutter
-```
+Configure `OLLAMA_URL` and `OLLAMA_MODEL` for lyric assistance. Configure `S3_BUCKET`, `S3_ENDPOINT`, and AWS credentials for private object storage. Provider availability means configured, not a promise that credentials, model downloads, or quotas are valid. Settings and job errors expose that distinction.
+
+Historical UI/controllers are preserved under `legacy/` for reference and are not loaded. Older Python model experiments are not exposed by the core API. Do not advertise MusicGen, RVC voice cloning, MIDI/DAW integration, professional neural separation, or singing generation as completed capabilities.

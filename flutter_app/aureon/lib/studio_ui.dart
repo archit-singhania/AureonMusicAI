@@ -3155,7 +3155,7 @@ Future<void> collaborationSheet(BuildContext context) async {
   if (!context.mounted) return;
   await sheet(
     context,
-    Column(
+    Consumer<StudioModel>(builder: (context, m, _) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Heading(
@@ -3181,12 +3181,18 @@ Future<void> collaborationSheet(BuildContext context) async {
             leading: const Icon(Icons.person_outline),
             title: Text(p['name']),
             subtitle: Text(p['role']),
+            trailing: m.current?['owner_id'] == m.account?['id'] && p['role'] != 'owner'
+                ? TextButton(
+                    onPressed: m.busy ? null : () => m.removeMember(p['id']),
+                    child: const Text('Remove'),
+                  )
+                : null,
           ),
         ),
         const SizedBox(height: 18),
         const JoinForm(),
       ],
-    ),
+    )),
   );
 }
 

@@ -46,7 +46,7 @@ void main() {
       model.dispose();
     });
   }
-  for (final width in [390.0, 840.0, 1440.0]) {
+  for (final width in [390.0, 800.0, 840.0, 1440.0]) {
     testWidgets('Editable studio has no overflow at $width', (tester) async {
       tester.view.physicalSize = Size(width, 1200);
       tester.view.devicePixelRatio = 1;

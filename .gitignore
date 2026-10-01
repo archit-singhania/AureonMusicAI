@@ -14,6 +14,7 @@ beats/
 *.db-shm
 *.db-wal
 *.log
+logs/local-processes-*.json
 **/bin/
 **/obj/
 **/.dart_tool/
@@ -25,3 +26,7 @@ beats/
 
 .idea/
 *.iml
+
+.hosting/
+.vercel/
+.netlify/

@@ -11,16 +11,16 @@ jobs:
         with: {dotnet-version: '10.0.x'}
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg libsndfile1
       - run: pip install -r python_audio_service/requirements-dev.txt
-      - run: pytest tests/test_studio.py -q
+      - run: pytest tests/test_studio.py tests/test_providers.py -q
       - run: dotnet build dotnet_backend/AureonApi/AureonApi.csproj -c Release
       - name: Gateway and live-event journey
         env:
           AUREON_INTERNAL_KEY: ci-local-only-key
           AUREON_GATEWAY_URL: http://localhost:5000
         run: |
-          (cd python_audio_service && uvicorn main:app --host 127.0.0.1 --port 8000) > /tmp/aureon-python.log 2>&1 &
+          (cd python_audio_service && uvicorn main:app --host 127.0.0.1 --port 8103) > /tmp/aureon-python.log 2>&1 &
           dotnet run --no-build -c Release --project dotnet_backend/AureonApi --urls http://localhost:5000 > /tmp/aureon-dotnet.log 2>&1 &
-          for attempt in $(seq 1 40); do curl -sf http://localhost:5000/health && curl -sf http://localhost:8000/health && break; sleep 1; done
+          for attempt in $(seq 1 40); do curl -sf http://localhost:5000/health && curl -sf http://localhost:8103/health && break; sleep 1; done
           pytest tests/test_gateway.py -q
   flutter:
     runs-on: ubuntu-latest

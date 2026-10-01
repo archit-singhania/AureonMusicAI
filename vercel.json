@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "framework": null,
+  "buildCommand": "python3 tools/build_hosted_web.py",
+  "outputDirectory": "flutter_app/aureon/build/web",
+  "routes": [
+    {"handle": "filesystem"},
+    {"src": "/(.*)", "dest": "/index.html"}
+  ]
+}

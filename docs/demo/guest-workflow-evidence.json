@@ -1,0 +1,22 @@
+{
+  "fixture": "Isolated guest workspace using original preset composition",
+  "url": "http://localhost:3005",
+  "completed": [
+    "Guest fixture created through UI",
+    "Actual original instrumental render completed",
+    "Real master playback started and paused",
+    "Bass stem muted in saved mixer",
+    "Real remixed master completed and previous mix available",
+    "Persistent guest session reopened from library",
+    "Real WAV export downloaded"
+  ],
+  "page_errors": [],
+  "video_audio": "Silent browser screen recording; actual exported master is supplied separately.",
+  "export": {
+    "format": "WAV",
+    "subtype": "PCM_24",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 21.818163265306122
+  }
+}

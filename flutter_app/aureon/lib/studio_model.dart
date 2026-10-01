@@ -42,11 +42,11 @@ class StudioModel extends ChangeNotifier {
         },
       ),
     );
-    player.positionStream.listen((value) {
+    positionSubscription = player.positionStream.listen((value) {
       position = value;
       notifyListeners();
     });
-    player.playerStateStream.listen((value) {
+    playerSubscription = player.playerStateStream.listen((value) {
       playing = value.playing;
       notifyListeners();
     });
@@ -66,6 +66,14 @@ class StudioModel extends ChangeNotifier {
       versions = [],
       members = [];
   final AudioPlayer player = AudioPlayer();
+  late final StreamSubscription<Duration> positionSubscription;
+  late final StreamSubscription<PlayerState> playerSubscription;
+  bool disposed = false;
+  @override
+  void notifyListeners() {
+    if (!disposed) super.notifyListeners();
+  }
+
   final Map<String, AudioPlayer> stemPlayers = {};
   final Map<String, Json> stemAssets = {};
   Duration position = Duration.zero;
@@ -75,6 +83,7 @@ class StudioModel extends ChangeNotifier {
       dirty = false,
       saving = false,
       stemMode = false;
+  bool refreshingPublic = false;
   bool comparingPrevious = false, loudnessMatched = true;
   Json? previousMaster;
   Timer? driftTimer;
@@ -93,9 +102,10 @@ class StudioModel extends ChangeNotifier {
   bool get authenticated => token.isNotEmpty;
   bool get rendering =>
       jobs.any((j) => !['done', 'failed', 'cancelled'].contains(j['status']));
-  double get duration =>
-      (master?['metrics']?['duration'] as num?)?.toDouble() ?? 0;
-  Json get metrics => Map<String, dynamic>.from(master?['metrics'] ?? {});
+  double get duration => (metrics['duration'] as num?)?.toDouble() ?? 0;
+  Json get metrics => Map<String, dynamic>.from(
+    (comparingPrevious ? previousMaster : master)?['metrics'] ?? {},
+  );
 
   Future<dynamic> request(String method, String path, {dynamic data}) async {
     try {
@@ -145,21 +155,33 @@ class StudioModel extends ChangeNotifier {
         await reload();
       });
     }
-    refreshTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => refreshQuietly(),
-    );
+    refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!online) {
+        refreshPublic();
+      } else {
+        refreshQuietly();
+      }
+    });
     notifyListeners();
   }
 
   Future<void> refreshPublic() async {
+    if (refreshingPublic) return;
+    refreshingPublic = true;
     try {
-      capabilities = Json.from(await request('GET', '/capabilities'));
-      presets = list(await request('GET', '/presets'));
-      showcase = list(await request('GET', '/showcase'));
+      final results = await Future.wait([
+        request('GET', '/capabilities'),
+        request('GET', '/presets'),
+        request('GET', '/showcase'),
+      ]);
+      capabilities = Json.from(results[0]);
+      presets = list(results[1]);
+      showcase = list(results[2]);
       online = true;
     } catch (_) {
       online = false;
+    } finally {
+      refreshingPublic = false;
     }
     notifyListeners();
   }
@@ -187,13 +209,31 @@ class StudioModel extends ChangeNotifier {
     await selectProject(Json.from(data['project']));
   });
   Future<void> session(dynamic data) async {
+    if (account?['id'] != data['user']['id']) {
+      reconnect?.cancel();
+      channel?.sink.close();
+      await player.stop();
+      await closeStems();
+      current = null;
+      master = null;
+      previousMaster = null;
+      projects = [];
+      jobs = [];
+      assets = [];
+      eventCursor = 0;
+      dirty = false;
+    }
     token = data['token'];
     account = Json.from(data['user']);
     if (!kIsWeb) await secure.write(key: 'aureon_token', value: token);
   }
 
   Future<void> logout() => guard(() async {
-    await request('POST', '/auth/logout');
+    try {
+      await request('POST', '/auth/logout');
+    } catch (_) {
+      // Local credentials can always be cleared, including while offline.
+    }
     token = '';
     account = null;
     current = null;
@@ -201,7 +241,11 @@ class StudioModel extends ChangeNotifier {
     projects = [];
     jobs = [];
     assets = [];
+    reconnect?.cancel();
+    saveTimer?.cancel();
+    dirty = false;
     await player.stop();
+    await closeStems();
     await secure.delete(key: 'aureon_token');
     channel?.sink.close();
   });
@@ -215,6 +259,15 @@ class StudioModel extends ChangeNotifier {
     }
     await refreshPublic();
     notifyListeners();
+  }
+
+  void updateLibraryProject(Json project) {
+    final index = projects.indexWhere((item) => item['id'] == project['id']);
+    if (index < 0) {
+      projects.insert(0, Json.from(project));
+    } else {
+      projects[index] = Json.from(project);
+    }
   }
 
   Future<void> createProject() => guard(() async {
@@ -279,7 +332,7 @@ class StudioModel extends ChangeNotifier {
   }
 
   Future<void> save() async {
-    if (saving) {
+    while (saving) {
       await saveCompletion?.future;
     }
     if (!dirty || current == null) return;
@@ -318,6 +371,7 @@ class StudioModel extends ChangeNotifier {
           },
         ),
       );
+      updateLibraryProject(result);
       if (current?['id'] == editingProjectId) {
         if (dirty) {
           current!['revision'] = result['revision'];
@@ -385,6 +439,7 @@ class StudioModel extends ChangeNotifier {
           current = Json.from(
             await request('GET', '/projects/${current!['id']}'),
           );
+          updateLibraryProject(current!);
         }
       }
       await refreshMaster();
@@ -493,7 +548,7 @@ class StudioModel extends ChangeNotifier {
   }
 
   void lostConnection() {
-    if (current == null || !authenticated) return;
+    if (disposed || current == null || !authenticated) return;
     liveStatus = 'Reconnect available';
     reconnect?.cancel();
     reconnect = Timer(const Duration(seconds: 5), connectLive);
@@ -528,6 +583,12 @@ class StudioModel extends ChangeNotifier {
   Future<void> toggleStems(bool enabled) => guard(() async {
     await player.pause();
     await closeStems();
+    if (enabled && comparingPrevious) {
+      final time = position;
+      comparingPrevious = false;
+      await player.setUrl(url(master!['url']));
+      await player.seek(time);
+    }
     stemMode = enabled;
     if (enabled) {
       for (final entry in stemAssets.entries) {
@@ -541,12 +602,13 @@ class StudioModel extends ChangeNotifier {
     await player.setVolume(enabled ? 0 : playbackGain);
     if (enabled) {
       driftTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
-        if (playing)
+        if (playing) {
           for (final p in stemPlayers.values) {
             if ((p.position - position).inMilliseconds.abs() > 45) {
               p.seek(position);
             }
           }
+        }
       });
     }
   });
@@ -651,6 +713,7 @@ class StudioModel extends ChangeNotifier {
       ),
     );
     dirty = false;
+    updateLibraryProject(current!);
     await loadVersions();
   });
   Future<void> loadMembers() async {
@@ -668,6 +731,14 @@ class StudioModel extends ChangeNotifier {
     );
     await reload();
     await selectProject(p);
+  });
+  Future<void> removeMember(String id) => guard(() async {
+    await save();
+    final projectId = current!['id'];
+    await request('DELETE', '/projects/$projectId/members/$id');
+    current = Json.from(await request('GET', '/projects/$projectId'));
+    updateLibraryProject(current!);
+    await loadMembers();
   });
   Future<void> publish() => guard(() async {
     await save();
@@ -734,6 +805,9 @@ class StudioModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    disposed = true;
+    positionSubscription.cancel();
+    playerSubscription.cancel();
     refreshTimer?.cancel();
     saveTimer?.cancel();
     reconnect?.cancel();

@@ -1,0 +1,12 @@
+[build]
+  command = "python3 tools/build_hosted_web.py"
+  publish = "flutter_app/aureon/build/web"
+
+[build.environment]
+  FLUTTER_VERSION = "3.47.3"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
