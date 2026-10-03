@@ -59,6 +59,13 @@ class Account(BaseModel):
         return value.lower().strip()
 
 
+class ArtStyle(BaseModel):
+    template: Literal["halo", "wave", "minimal"] = "halo"
+    accent: str = Field(default="#9877DE", pattern=r"^#[0-9A-Fa-f]{6}$")
+    background: str = Field(default="#191C2B", pattern=r"^#[0-9A-Fa-f]{6}$")
+    caption: str = Field(default="", max_length=80)
+
+
 class ProjectState(BaseModel):
     title: str = Field(default="Untitled session", min_length=1, max_length=100)
     genre: Literal["rnb", "trap", "pop", "rap", "drill"] = "rnb"
@@ -71,6 +78,10 @@ class ProjectState(BaseModel):
     key: str = Field(default="A minor", max_length=30)
     language: str = Field(default="en-IN", max_length=12)
     engine: Literal["instrumental", "recording", "sarvam", "xtts"] = "instrumental"
+    separation_engine: Literal["spectral-dsp", "demucs"] = "spectral-dsp"
+    beat_offset_ms: float = Field(default=0, ge=-5000, le=5000)
+    beats_per_bar: Literal[3, 4, 6, 8] = 4
+    artwork: ArtStyle = Field(default_factory=ArtStyle)
     params: dict[str, float | bool] = Field(
         default_factory=lambda: dict(DEFAULT_PARAMS)
     )
@@ -124,6 +135,16 @@ class Invite(BaseModel):
     code: str = Field(min_length=8, max_length=80)
 
 
+class Revision(BaseModel):
+    revision: int = Field(ge=1)
+
+
+class VoiceProfile(BaseModel):
+    asset_id: str
+    name: str = Field(min_length=1, max_length=80)
+    language: str = Field(default="en-IN", max_length=12)
+
+
 def user(authorization: str = Header(default="")):
     result = (
         lookup_token(authorization.removeprefix("Bearer ").strip())
@@ -155,6 +176,12 @@ def owned(db, doc_id, owner, kind=None):
         if not member:
             raise HTTPException(404, "Item not found.")
     return doc
+
+
+def validate_project_assets(db, state, owner):
+    for aid in (state.beat_asset_id, state.vocal_asset_id, state.cover_asset_id):
+        if aid:
+            owned(db, aid, owner, "asset")
 
 
 def signed_asset(doc):
@@ -202,6 +229,7 @@ def safe_path(doc):
 
 
 def progress(job_id, status=None, value=None, **changes):
+    cancelled = False
     with session() as db:
         job = db.get(Document, job_id)
         if job.data.get("cancel_requested"):
@@ -209,14 +237,17 @@ def progress(job_id, status=None, value=None, **changes):
                 db, job, {**job.data, "status": "cancelled", "finished_at": time.time()}
             )
             emit(db, job, "job.cancelled")
-            raise InterruptedError()
-        data = {**job.data, **changes, "heartbeat": time.time()}
-        if status is not None:
-            data["status"] = status
-        if value is not None:
-            data["progress"] = value
-        replace(db, job, data)
-        emit(db, job, "job.progress")
+            cancelled = True
+        else:
+            data = {**job.data, **changes, "heartbeat": time.time()}
+            if status is not None:
+                data["status"] = status
+            if value is not None:
+                data["progress"] = value
+            replace(db, job, data)
+            emit(db, job, "job.progress")
+    if cancelled:
+        raise InterruptedError()
 
 
 def voice(state, output):
@@ -276,7 +307,9 @@ def process(job_id):
                     )
                 detected = audio.analysis(beat_path)
                 progress(job_id, "separating", 25)
-                stems, separation = audio.separate(beat_path, directory)
+                stems, separation = audio.separate(
+                    beat_path, directory, state.get("separation_engine", "spectral-dsp")
+                )
             else:
                 beat_path, stems, preset = audio.synthesize_preset(
                     state["preset_id"], directory, bpm=state["bpm"], key=state["key"]
@@ -367,17 +400,18 @@ def process(job_id):
     except Exception as error:
         with session() as db:
             job = db.get(Document, job_id)
+            cancelled = bool(job.data.get("cancel_requested"))
             replace(
                 db,
                 job,
                 {
                     **job.data,
-                    "status": "failed",
-                    "error": str(error)[:600],
+                    "status": "cancelled" if cancelled else "failed",
+                    "error": None if cancelled else str(error)[:600],
                     "finished_at": time.time(),
                 },
             )
-            emit(db, job, "job.failed")
+            emit(db, job, "job.cancelled" if cancelled else "job.failed")
 
 
 async def worker():
@@ -481,6 +515,7 @@ def capabilities():
         "mp3": bool(audio.ffmpeg()),
         "video": bool(audio.ffmpeg()),
         "separation": "spectral-dsp",
+        "demucs": bool(importlib.util.find_spec("demucs")),
         "experimental": {
             k: "unavailable" for k in ("musicgen", "rvc", "vocoder", "midi", "ableton")
         },
@@ -622,6 +657,7 @@ def projects(current=Depends(user)):
 @app.post("/api/v1/projects", status_code=201)
 def create_project(body: ProjectState, current=Depends(user)):
     with session() as db:
+        validate_project_assets(db, body, current.id)
         p = create(
             db,
             "project",
@@ -638,28 +674,92 @@ def project(pid, current=Depends(user)):
         return public(owned(db, pid, current.id, "project"))
 
 
+def edit_history(db, project):
+    history = db.scalar(
+        select(Document).where(
+            Document.kind == "edit_history", Document.parent == project.id
+        )
+    )
+    return history or create(
+        db, "edit_history", project.owner, {"undo": [], "redo": []}, project.id
+    )
+
+
+def snapshot(db, project, author, action):
+    return create(
+        db,
+        "version",
+        project.owner,
+        {
+            "action": action,
+            "state": ProjectState.model_validate(project.data).model_dump(),
+            "author": author,
+        },
+        project.id,
+    )
+
+
+def remember_edit(db, project, version):
+    history = edit_history(db, project)
+    replace(
+        db, history, {"undo": (history.data["undo"] + [version.id])[-100:], "redo": []}
+    )
+
+
+@app.get("/api/v1/projects/{pid}/history")
+def history_status(pid, current=Depends(user)):
+    with session() as db:
+        project = owned(db, pid, current.id, "project")
+        data = edit_history(db, project).data
+        return {"can_undo": bool(data["undo"]), "can_redo": bool(data["redo"])}
+
+
+def navigate_history(pid, body, current, direction):
+    with session() as db:
+        project = owned(db, pid, current.id, "project")
+        if project.revision != body.revision:
+            raise HTTPException(
+                409, "This session changed on another device. Reopen before undo/redo."
+            )
+        history = edit_history(db, project)
+        data = {key: list(value) for key, value in history.data.items()}
+        if not data[direction]:
+            raise HTTPException(409, f"No saved edit to {direction}.")
+        target = db.get(Document, data[direction].pop())
+        previous = snapshot(db, project, current.name, f"Before {direction}")
+        other = "redo" if direction == "undo" else "undo"
+        data[other] = (data[other] + [previous.id])[-100:]
+        replace(db, history, data)
+        replace(
+            db,
+            project,
+            {**target.data["state"], "invite_code": project.data["invite_code"]},
+            body.revision,
+        )
+        emit(db, project, f"project.{direction}")
+        return {
+            **public(project),
+            "can_undo": bool(data["undo"]),
+            "can_redo": bool(data["redo"]),
+        }
+
+
+@app.post("/api/v1/projects/{pid}/undo")
+def undo(pid, body: Revision, current=Depends(user)):
+    return navigate_history(pid, body, current, "undo")
+
+
+@app.post("/api/v1/projects/{pid}/redo")
+def redo(pid, body: Revision, current=Depends(user)):
+    return navigate_history(pid, body, current, "redo")
+
+
 @app.put("/api/v1/projects/{pid}")
 def save(pid, body: ProjectSave, current=Depends(user)):
     with session() as db:
         p = owned(db, pid, current.id, "project")
-        for aid in (
-            body.state.beat_asset_id,
-            body.state.vocal_asset_id,
-            body.state.cover_asset_id,
-        ):
-            if aid:
-                owned(db, aid, current.id, "asset")
-        create(
-            db,
-            "version",
-            p.owner,
-            {
-                "action": body.action,
-                "state": ProjectState.model_validate(p.data).model_dump(),
-                "author": current.name,
-            },
-            pid,
-        )
+        validate_project_assets(db, body.state, current.id)
+        remember_edit(db, p, snapshot(db, p, current.name, body.action))
         replace(
             db,
             p,
@@ -704,17 +804,7 @@ def restore(pid, vid, current=Depends(user)):
         )
         if v.parent != pid:
             raise HTTPException(404, "Version not found.")
-        create(
-            db,
-            "version",
-            p.owner,
-            {
-                "action": "Before restore",
-                "state": ProjectState.model_validate(p.data).model_dump(),
-                "author": current.name,
-            },
-            pid,
-        )
+        remember_edit(db, p, snapshot(db, p, current.name, "Before restore"))
         replace(db, p, {**v.data["state"], "invite_code": p.data["invite_code"]})
         emit(db, p, "project.restored")
         return public(p)
@@ -818,6 +908,69 @@ def assets(current=Depends(user)):
 def get_asset(aid, current=Depends(user)):
     with session() as db:
         return signed_asset(owned(db, aid, current.id, "asset"))
+
+
+@app.get("/api/v1/voice-profiles")
+def voice_profiles(current=Depends(user)):
+    with session() as db:
+        return [
+            public(p)
+            for p in db.scalars(
+                select(Document)
+                .where(Document.kind == "voice_profile", Document.owner == current.id)
+                .order_by(Document.created.desc())
+            )
+        ]
+
+
+@app.post("/api/v1/voice-profiles", status_code=201)
+def create_voice_profile(body: VoiceProfile, current=Depends(user)):
+    with session() as db:
+        take = owned(db, body.asset_id, current.id, "asset")
+        if (
+            take.owner != current.id
+            or not take.data.get("consented")
+            or not take.data["media_type"].startswith("audio/")
+        ):
+            raise HTTPException(
+                403, "Use your own consented recording to create a voice profile."
+            )
+        return public(
+            create(
+                db,
+                "voice_profile",
+                current.id,
+                {
+                    **body.model_dump(),
+                    "consented": True,
+                    "metrics": take.data.get("metrics", {}),
+                },
+            )
+        )
+
+
+@app.post("/api/v1/projects/{pid}/voice-profiles/{profile_id}/use")
+def reuse_voice_profile(pid, profile_id, current=Depends(user)):
+    import shutil
+
+    with session() as db:
+        owned(db, pid, current.id, "project")
+        profile = owned(db, profile_id, current.id, "voice_profile")
+        take = owned(db, profile.data["asset_id"], current.id, "asset")
+        directory = ASSETS / identifier()
+        directory.mkdir()
+        output = directory / "voice-take.wav"
+        shutil.copyfile(safe_path(take), output)
+        result = asset(db, current.id, pid, output, profile.data["name"], "audio/wav")
+        result.data = {**result.data, "consented": True, "voice_profile_id": profile.id}
+        return signed_asset(result)
+
+
+@app.delete("/api/v1/voice-profiles/{profile_id}")
+def delete_voice_profile(profile_id, current=Depends(user)):
+    with session() as db:
+        db.delete(owned(db, profile_id, current.id, "voice_profile"))
+    return {"status": "removed", "recording_retained": True}
 
 
 @app.get("/api/v1/assets/{aid}/content")
@@ -1101,7 +1254,7 @@ def copilot(body: Prompt, current=Depends(user)):
 
 
 @app.post("/api/v1/projects/{pid}/artwork")
-def artwork(pid, current=Depends(user)):
+def artwork(pid, body: ArtStyle = ArtStyle(), current=Depends(user)):
     from PIL import Image, ImageDraw
 
     with session() as db:
@@ -1109,18 +1262,31 @@ def artwork(pid, current=Depends(user)):
     directory = ASSETS / identifier()
     directory.mkdir()
     path = directory / "artwork.png"
-    image = Image.new("RGB", (1024, 1024), "#191C2B")
+    image = Image.new("RGB", (1024, 1024), body.background)
     draw = ImageDraw.Draw(image)
-    for i in range(120):
-        r = 500 - i * 3
-        draw.ellipse(
-            (512 - r, 470 - r, 512 + r, 470 + r),
-            fill=(int(70 + i * 0.6), int(60 + i * 0.45), int(125 + i * 0.5)),
+    rgb = tuple(int(body.accent[i : i + 2], 16) for i in (1, 3, 5))
+    if body.template == "halo":
+        for i in range(120):
+            r = 500 - i * 3
+            draw.ellipse(
+                (512 - r, 470 - r, 512 + r, 470 + r),
+                fill=tuple(int(c * (0.35 + i / 185)) for c in rgb),
+            )
+    elif body.template == "wave":
+        for x in range(100, 925, 22):
+            height = int(70 + 200 * abs(__import__("math").sin(x / 75)))
+            draw.rounded_rectangle(
+                (x, 440 - height, x + 12, 440 + height), radius=6, fill=body.accent
+            )
+    else:
+        draw.rounded_rectangle(
+            (80, 90, 944, 770), radius=72, outline=body.accent, width=6
         )
     draw.line([(270, 650), (512, 200), (754, 650)], fill="#F6E9E0", width=26)
     for x, height in [(435, 90), (475, 150), (515, 210), (555, 150), (595, 90)]:
         draw.rounded_rectangle((x, 550 - height, x + 12, 550), radius=6, fill="#F6E9E0")
     draw.text((64, 880), title[:48], fill="white", font_size=40)
+    draw.text((64, 945), body.caption, fill="white", font_size=24)
     image.save(path)
     with session() as db:
         return signed_asset(asset(db, current.id, pid, path, title, "image/png", False))
@@ -1186,6 +1352,7 @@ def publish(pid, body: Publish, current=Depends(user)):
         p = owned(db, pid, current.id, "project")
         if p.owner != current.id:
             raise HTTPException(403, "Only the owner can publish.")
+        validate_project_assets(db, ProjectState.model_validate(p.data), current.id)
         jobs = list(
             db.scalars(
                 select(Document)
@@ -1278,6 +1445,9 @@ def like(pid, current=Depends(user)):
 @app.get("/api/v1/showcase/{pid}/comments")
 def comments(pid):
     with session() as db:
+        publication = db.get(Document, pid)
+        if not publication or publication.kind != "publication":
+            raise HTTPException(404, "Track not found.")
         return [
             public(c)
             for c in db.scalars(
@@ -1304,6 +1474,27 @@ def comment(pid, body: Comment, current=Depends(user)):
                 pid,
             )
         )
+
+
+@app.delete("/api/v1/showcase/{pid}/comments/{comment_id}")
+def moderate_comment(pid, comment_id, current=Depends(user)):
+    with session() as db:
+        publication = db.get(Document, pid)
+        note = db.get(Document, comment_id)
+        if (
+            not publication
+            or publication.kind != "publication"
+            or not note
+            or note.kind != "comment"
+            or note.parent != pid
+        ):
+            raise HTTPException(404, "Note not found.")
+        if current.id not in (publication.owner, note.owner):
+            raise HTTPException(
+                403, "Only the track owner or note author can remove this note."
+            )
+        db.delete(note)
+    return {"status": "removed"}
 
 
 @app.delete("/api/v1/showcase/{pid}")

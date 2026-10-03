@@ -18,7 +18,8 @@ foreach ($studioPort in @($PythonPort, $GatewayPort)) {
 $studioLogRoot = Join-Path $studioRoot 'logs'
 New-Item -ItemType Directory -Path $studioLogRoot -Force | Out-Null
 $studioProject = Join-Path $studioRoot 'dotnet_backend/AureonApi/AureonApi.csproj'
-& $Dotnet build $studioProject -c Release --nologo
+$studioGatewayBuild = Join-Path $studioLogRoot "gateway-$GatewayPort-release"
+& $Dotnet build $studioProject -c Release --nologo -p:UseAppHost=false --output $studioGatewayBuild
 if ($LASTEXITCODE -ne 0) { throw 'Gateway build failed; no service was started.' }
 $studioPrevious = @{}
 foreach ($studioName in @('AUREON_INTERNAL_KEY', 'AUREON_ORIGINS', 'AllowedOrigins', 'AudioService__BaseUrl')) {
@@ -46,7 +47,7 @@ try {
   $studioServices += $studioPython
   $studioHealth = Wait-StudioService $studioPython "http://127.0.0.1:$PythonPort"
   if (-not $studioHealth.ffmpeg) { throw 'Install FFmpeg on PATH or imageio-ffmpeg in the selected Python environment, then restart.' }
-  $studioDll = Join-Path $studioRoot 'dotnet_backend/AureonApi/bin/Release/net10.0/AureonApi.dll'
+  $studioDll = Join-Path $studioGatewayBuild 'AureonApi.dll'
   $studioGateway = Start-Process -FilePath $Dotnet -ArgumentList @("`"$studioDll`"", '--urls', "http://127.0.0.1:$GatewayPort") -WorkingDirectory $studioRoot -WindowStyle Hidden -RedirectStandardOutput (Join-Path $studioLogRoot "gateway-$GatewayPort-output.log") -RedirectStandardError (Join-Path $studioLogRoot "gateway-$GatewayPort-error.log") -PassThru
   $studioServices += $studioGateway
   $null = Wait-StudioService $studioGateway "http://127.0.0.1:$GatewayPort"

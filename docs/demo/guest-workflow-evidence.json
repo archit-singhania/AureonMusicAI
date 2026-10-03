@@ -8,15 +8,24 @@
     "Bass stem muted in saved mixer",
     "Real remixed master completed and previous mix available",
     "Persistent guest session reopened from library",
-    "Real WAV export downloaded"
+    "Real WAV export downloaded",
+    "Original cover rendered through the real editor",
+    "Actual rendered MP4 preview decoded and playback advanced"
   ],
   "page_errors": [],
   "video_audio": "Silent browser screen recording; actual exported master is supplied separately.",
-  "export": {
+  "decoded_export": {
     "format": "WAV",
     "subtype": "PCM_24",
-    "sample_rate": 44100,
     "channels": 2,
+    "sample_rate": 44100,
+    "frames": 962181,
     "duration_seconds": 21.818163265306122
+  },
+  "recording": {
+    "format": "MP4",
+    "width": 1440,
+    "height": 1000,
+    "audio": "silent screen capture; actual master supplied as guest-master.wav"
   }
 }

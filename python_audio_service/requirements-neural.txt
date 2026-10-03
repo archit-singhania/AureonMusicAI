@@ -1,0 +1,3 @@
+# Optional isolated Python 3.11 worker profile. Install core requirements too.
+# Select Demucs explicitly; weights/hardware and live inference are release gates.
+demucs==4.0.1

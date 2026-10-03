@@ -15,6 +15,7 @@ android {
     }
 
     defaultConfig {
+        manifestPlaceholders["aureonCleartext"] = "false"
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "dev.aureon.aureon"
         // You can update the following values to match your application needs.
@@ -30,6 +31,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["aureonCleartext"] = "true"
+        }
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.

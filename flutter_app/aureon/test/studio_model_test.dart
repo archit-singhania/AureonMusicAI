@@ -86,6 +86,8 @@ void main() {
       await adapter.waitForCount(1);
       model.edit('lyrics', 'new edits while saving');
       model.edit('title', 'Afterglow, revised');
+      model.edit('beat_offset_ms', 125);
+      model.edit('beats_per_bar', 3);
       final secondSave = model.save();
       adapter.resolve(0, {
         'id': 'session',
@@ -99,6 +101,8 @@ void main() {
       expect(adapter.requests[1]['revision'], 2);
       expect(adapter.requests[1]['state']['lyrics'], 'new edits while saving');
       expect(adapter.requests[1]['state']['title'], 'Afterglow, revised');
+      expect(adapter.requests[1]['state']['beat_offset_ms'], 125);
+      expect(adapter.requests[1]['state']['beats_per_bar'], 3);
       var completed = false;
       secondSave.then((_) => completed = true);
       await Future<void>.delayed(Duration.zero);

@@ -1,28 +1,28 @@
-# Capability matrix
+# Aureon capability acceptance matrix
 
-Core means implemented without a paid provider. Verified means an executed test or build in this workspace. Device checks and optional external services are recorded separately.
+The approved **20 product capabilities** are listed below in their original scope. Premium appearance, responsive layouts, accessibility, authentication, private storage, .NET contracts, containers and CI are additional foundations. “Implemented” describes code; verification identifies executed checks. External models/providers and actual devices remain explicit gates.
 
-| # | Capability | Implementation and acceptance evidence |
-|---|---|---|
-| 1 | Responsive premium workspace | Flutter pearl/graphite/system themes, original brand, desktop/phone navigation; widget layouts at 390/800/840/1440 px. |
-| 2 | Accessible appearance | Reduce motion/transparency, semantic controls, accessible contrast, safe area; responsive widget tests. |
-| 3 | Private accounts and session authorization | Scrypt passwords, hashed expiring tokens, project ownership/editor access; auth/ownership and live gateway tests. |
-| 4 | Persistent session library | SQLite locally/Postgres configuration, searchable projects, duplicate/archive; durable save/revision tests. |
-| 5 | Autosave, local recovery and history | Debounced saves, optimistic revisions, device draft persistence, snapshots/restore; revision-conflict and restore tests. |
-| 6 | Original preset composition | Five deterministic compositions, editable tempo/key, real preview audio; synthesis and measured-master tests. |
-| 7 | Audio import and analysis | Bounded upload, codec decode, estimated BPM/key/confidence; actual WAV import tests. Estimates may be inaccurate. |
-| 8 | Four-stem session | Exact generated instrument stems; imported music uses approximate HPSS spectral DSP. Real stem ZIP tested; no neural vocal isolation claim. |
-| 9 | Consent-based recording workflow | Flutter microphone PCM/WAV, consent flag and owned voice upload; WAV header/upload tested, device microphone gate remains. |
-| 10 | Optional multilingual speech | Sarvam Bulbul v3 adapter and local XTTS adapter; missing-provider gating and Sarvam contract tests. Paid call/XTTS weights unverified. |
-| 11 | Lyric notebook and assistance | Persistent lyric drafts, approximate English syllable helper; optional real Ollama request, unavailable-provider test. Model inference unverified. |
-| 12 | Live stem mixer | Common transport, gain/mute/solo, periodic drift correction, DSP render; actual changed master compared in audio tests. Hardware latency varies. |
-| 13 | Real DSP processing | Tape saturation, feedback delay, stereo width, de-esser and oversampled peak protection; finite measurable changed audio tested. |
-| 14 | Measured master analysis | PCM waveform/spectrum, integrated LUFS, true peak and duration; actual decoded output and headroom assertions. |
-| 15 | Master A/B and loudness matching | Previous/current render playback with common seek and quieter measured-LUFS gain; measured selection/attenuation regression tested; browser audition remains a manual gate. |
-| 16 | Persistent render jobs | Database-backed queue, Redis wake-up, progress, cancel/retry/idempotency, stale-job recovery; actual render/cancel/retry tests. |
-| 17 | Real exports | 24-bit stereo WAV, MP3, stem/session ZIP and portrait audio visualizer MP4 via FFmpeg; decodable media/MP4 container tests. |
-| 18 | Explainable mix copilot | Prompt-to-supported-DSP proposal, explicit review/apply; proposal test. Deterministic rules, not an LLM sound engineer. |
-| 19 | Collaboration and live updates | Invite/join/editor/revoke, revision conflicts, authorized SignalR + event replay; member permission and gateway event tests. No simultaneous DAW sample collaboration claim. |
-| 20 | Original artwork and community | Generated original cover template/image upload, real publication/master play, likes/comments/unpublish; publication/comment/like tests. No AI-image-provider claim. |
+| # | Approved capability | Working path and evidence | Remaining gate |
+|---|---|---|---|
+| 1 | Project workspaces with autosave/restored sessions | Persistent SQLite/Postgres project documents; Library search/open/duplicate/archive; coordinated autosave, local drafts and snapshots. Core durability/revision and Flutter save regression pass. | Public account recovery/email verification before public operation. |
+| 2 | Real beat presets, previews/uploads and asset metadata | Five original deterministic compositions, real audio previews, bounded codec upload, owned media metadata/metrics. Actual decoded render/import tests pass. | None for local preset/WAV/MP3 flow. |
+| 3 | BPM/key analysis and editable beat grid | Import estimates with confidence; saved BPM/key, meter and downbeat offset; clickable grid seeks actual master. Grid persistence and widget tests. | Analysis is estimated; no automatic time-stretch/quantization claim. |
+| 4 | Microphone recording and multilingual transcription | Consent-gated PCM/WAV recording/upload; visible Sarvam Saaras v3 transcription capability and actual HTTP adapter. WAV and mocked provider contracts pass. | Actual microphone/device permission and live Sarvam key/quota. |
+| 5 | Lyric co-writing, revisions and flow feedback | Saved notebook, syllable/phrase feedback, lyric revision history/restore, optional real Ollama co-writing. Unavailable-provider and revision tests pass. | Live Ollama model inference; syllable guidance is approximate English. |
+| 6 | Vocal synthesis with visible engine/capability status | Instrumental/recording modes; configured Sarvam Bulbul v3 and installed XTTS speech adapters; engine gates and failure handling. Provider contract tests pass. | Paid Sarvam call or local XTTS weights/runtime; speech is not singing. |
+| 7 | Consented voice profiles and reusable recording takes | Private named/language profiles accept only the user's own consented audio. Reuse copies a real take to another project; remove retains the original audio. Ownership/consent/byte-identical reuse tests pass. | Profile records do not clone or train a voice. |
+| 8 | Genuine four-stem separation when engine is installed | Explicit Demucs subprocess adapter validates four real output files; UI enables only when installed. No silent fallback. Missing-engine/process/file contract tests pass. Generated presets already have exact original stems. | Demucs weights/hardware and real neural inference unverified. Spectral DSP remains a separately labeled approximate option with no vocal isolation. |
+| 9 | Synced stems with seek/mute/solo and saved faders | Common master transport, preloaded players, drift correction and persisted gain/mute/solo; real changed render tests pass. | Hardware latency/listening QA; not sample-accurate DAW playback. |
+| 10 | Effects rack applied through real render jobs | Saturation, delay, stereo width, de-esser, loudness and peak protection change actual PCM. DSP finite/changed/headroom tests pass. | Device listening QA; effects apply on rendered master. |
+| 11 | Mixing copilot with reviewable parameters | Explainable prompt-to-supported-DSP proposal; explicit review/apply; no automatic parameter overwrite. Proposal test passes. | Deterministic helper; no LLM audio-engineer claim. |
+| 12 | LUFS/true-peak analysis and matched A/B | Measured loudness/oversampled peak, previous/current masters, common seek and quieter attenuation. PCM/headroom and selected-master/attenuation regressions pass. | Browser/device audition; no mastering certification. |
+| 13 | Audio waveform and spectrum | Real decoded PCM waveform and spectrum frames; selected-master playback metrics. Actual waveform/spectrum assertions pass. | None for decoded core media. |
+| 14 | Undo/redo and durable project snapshots | Database-backed undo/redo stacks, optimistic revisions, history/restore and rotated-invite preservation. Undo→engine reopen→redo/conflict tests pass. | Undo groups correspond to saved edits; a new saved branch clears redo. |
+| 15 | Generation queue with cancel/retry/recovery | Authoritative DB jobs, optional Redis wake-up, one local worker and up to three pending requests per project, actual progress, cancel/retry/idempotency/stale recovery. Core tests pass. | Cancellation is between stages; stale processing lease is 10 minutes. |
+| 16 | Playable WAV/MP3 and stem ZIP | Actual 24-bit stereo WAV, decodable MP3, four real stem WAVs plus session metadata ZIP. Decode/container tests and real browser WAV download pass. | FFmpeg required; no MIDI/DAW export. |
+| 17 | Visualizer video render, preview and download | FFmpeg portrait MP4 with actual master; completed-job video player and Save action. Real MP4 container tests and actual Chrome decoding/playback-clock advancement pass. | Actual-device codec QA; Windows native player may require an external MP4 viewer. |
+| 18 | Artwork editor with templates and optional AI | Halo/Wave/Minimal original templates, editable accent/background/caption, real 1024 px PNG render and image upload. Distinct decoded template tests and phone editor widget test. | Optional AI image provider is not configured or advertised as completed. |
+| 19 | Invited collaboration, permissions and synced changes | Owner/editor invite join, live SignalR + authenticated replay, revision conflicts, owner Remove with invite rotation and access-revoked UI. Real live delivery/revocation and API ownership tests pass. | No simultaneous sample-accurate DAW collaboration. |
+| 20 | Published showcase tracks with playback/moderation | Real published masters/covers, playback, likes/comments, author or track-owner note removal and owner unpublish. Publication/moderation authorization tests pass. | Sitewide moderator roles/abuse reporting are production work. |
 
-Production deployment additionally provides Postgres, Redis, private S3-compatible storage configuration, nginx streaming proxy, container definitions, and CI. Those integrations need configured service verification before production use. Historical experiments (MusicGen, RVC, vocoder, MIDI, Ableton) remain unavailable in the core capability endpoint.
+The free local walkthrough covers composition, DSP, analysis, artwork, library, queue, media export and controlled collaboration. See [manual acceptance](MANUAL_TESTING.md), [verification](VERIFICATION.md), [architecture](ARCHITECTURE.md) and [release plan](RELEASE_PLAN.md). Historical MusicGen/RVC/vocoder/MIDI/Ableton experiments are not exposed as core capabilities.

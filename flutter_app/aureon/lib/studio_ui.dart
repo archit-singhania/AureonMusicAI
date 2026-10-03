@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 import 'package:record/record.dart';
 import 'studio_model.dart';
 
@@ -636,40 +637,59 @@ class StudioPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Editor(
-                      value: m.title,
-                      onChanged: (v) => m.edit('title', v),
-                      style: Theme.of(context).textTheme.displayMedium,
-                      label: 'Session title',
-                      borderless: true,
+              LayoutBuilder(
+                builder: (context, header) {
+                  final title = Editor(
+                    value: m.title,
+                    onChanged: (v) => m.edit('title', v),
+                    style: Theme.of(context).textTheme.displayMedium,
+                    label: 'Session title',
+                    borderless: true,
+                  );
+                  final actions = [
+                    Tooltip(
+                      message: 'Version history',
+                      child: IconButton(
+                        onPressed: () => versionSheet(context),
+                        icon: const Icon(Icons.history_rounded),
+                      ),
                     ),
-                  ),
-                  Tooltip(
-                    message: 'Version history',
-                    child: IconButton(
-                      onPressed: () => versionSheet(context),
-                      icon: const Icon(Icons.history_rounded),
+                    Tooltip(
+                      message: 'Invite a collaborator',
+                      child: IconButton(
+                        onPressed: () => collaborationSheet(context),
+                        icon: const Icon(Icons.group_add_outlined),
+                      ),
                     ),
-                  ),
-                  Tooltip(
-                    message: 'Invite a collaborator',
-                    child: IconButton(
-                      onPressed: () => collaborationSheet(context),
-                      icon: const Icon(Icons.group_add_outlined),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: m.busy || m.rendering
+                          ? null
+                          : () => m.generate(),
+                      icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                      label: Text(m.rendering ? 'Rendering…' : 'Create master'),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: m.busy || m.rendering
-                        ? null
-                        : () => m.generate(),
-                    icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-                    label: Text(m.rendering ? 'Rendering…' : 'Create master'),
-                  ),
-                ],
+                  ];
+                  if (header.maxWidth < 620) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        title,
+                        const SizedBox(height: 10),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: actions,
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: title),
+                      ...actions,
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -686,6 +706,20 @@ class StudioPage extends StatelessWidget {
                       fontSize: 12,
                       color: Color(0xFF639A7E),
                     ),
+                  ),
+                  TextButton.icon(
+                    onPressed: !m.busy && (m.canUndo || m.dirty)
+                        ? () => m.navigateHistory('undo')
+                        : null,
+                    icon: const Icon(Icons.undo, size: 16),
+                    label: const Text('Undo'),
+                  ),
+                  TextButton.icon(
+                    onPressed: !m.busy && m.canRedo && !m.dirty
+                        ? () => m.navigateHistory('redo')
+                        : null,
+                    icon: const Icon(Icons.redo, size: 16),
+                    label: const Text('Redo'),
                   ),
                 ],
               ),
@@ -1099,7 +1133,7 @@ class SourcePanel extends StatelessWidget {
           if (m.current!['beat_asset_id'] != null) ...[
             const SizedBox(height: 8),
             Text(
-              'Imported audio · spectral DSP separation',
+              'Imported audio · choose a separation engine below',
               style: muted(context).copyWith(fontSize: 11),
             ),
           ],
@@ -1132,6 +1166,32 @@ class SourcePanel extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text('VOCAL SOURCE', style: label(context)),
+          const SizedBox(height: 16),
+          const EditableBeatGrid(),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            initialValue: m.current!['separation_engine'] ?? 'spectral-dsp',
+            decoration: const InputDecoration(
+              labelText: 'Imported separation engine',
+            ),
+            items: [
+              const DropdownMenuItem(
+                value: 'spectral-dsp',
+                child: Text('Approximate spectral DSP'),
+              ),
+              DropdownMenuItem(
+                value: 'demucs',
+                enabled: m.capabilities['demucs'] == true,
+                child: Text(
+                  m.capabilities['demucs'] == true
+                      ? 'Demucs · genuine neural four stems'
+                      : 'Demucs · optional engine not installed',
+                ),
+              ),
+            ],
+            onChanged: (v) => m.edit('separation_engine', v),
+          ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
             isExpanded: true,
@@ -1182,6 +1242,11 @@ class SourcePanel extends StatelessWidget {
                 icon: const Icon(Icons.audio_file_outlined, size: 18),
                 label: const Text('Import voice'),
               ),
+              TextButton.icon(
+                onPressed: () => voiceProfilesSheet(context),
+                icon: const Icon(Icons.person_outline, size: 18),
+                label: const Text('My voice profiles'),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -1196,12 +1261,17 @@ class SourcePanel extends StatelessWidget {
             ],
             onChanged: (v) => m.edit('language', v),
           ),
-          if (m.current!['vocal_asset_id'] != null &&
-              m.capabilities['sarvam'] == true)
+          if (m.current!['vocal_asset_id'] != null)
             TextButton.icon(
-              onPressed: m.transcribeTake,
+              onPressed: m.capabilities['sarvam'] == true
+                  ? m.transcribeTake
+                  : null,
               icon: const Icon(Icons.subtitles_outlined, size: 17),
-              label: const Text('Transcribe this take'),
+              label: Text(
+                m.capabilities['sarvam'] == true
+                    ? 'Transcribe this take'
+                    : 'Transcription · Sarvam key required',
+              ),
             ),
           if (m.current!['vocal_asset_id'] != null)
             Padding(
@@ -1268,8 +1338,13 @@ class LyricsPanel extends StatelessWidget {
           ),
           const SizedBox(height: 7),
           Text(
-            'English syllable estimates · 4/4 beat grid',
+            'English syllable estimates · ${m.current!['beats_per_bar'] ?? 4}/4 grid · ${lyrics.split('\n').where((line) => line.trim().isNotEmpty).length} lines. Aim for a similar syllable count in parallel phrases; audition the rhythm.',
             style: muted(context).copyWith(fontSize: 11),
+          ),
+          TextButton.icon(
+            onPressed: () => versionSheet(context),
+            icon: const Icon(Icons.history, size: 16),
+            label: const Text('Lyric revisions'),
           ),
           if (m.current!['engine'] == 'instrumental')
             Padding(
@@ -1792,8 +1867,8 @@ class ArtworkPanel extends StatelessWidget {
             runSpacing: 8,
             children: [
               OutlinedButton(
-                onPressed: m.createArtwork,
-                child: const Text('Create cover'),
+                onPressed: () => sheet(context, const ArtworkEditor()),
+                child: const Text('Edit cover'),
               ),
               TextButton(
                 onPressed: () => m.pickAsset('cover_asset_id'),
@@ -2264,6 +2339,23 @@ class ActivityPage extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: (j['progress'] as num) / 100,
                         ),
+                      ),
+                    if (j['status'] == 'done' && j['job_kind'] == 'video')
+                      TextButton.icon(
+                        onPressed: () => m.guard(() async {
+                          final a = await m.request(
+                            'GET',
+                            '/assets/${j['master_asset_id']}',
+                          );
+                          if (context.mounted) {
+                            await sheet(
+                              context,
+                              VideoPreview(url: m.url(a['url'])),
+                            );
+                          }
+                        }),
+                        icon: const Icon(Icons.movie_outlined),
+                        label: const Text('Preview video'),
                       ),
                     if (j['error'] != null)
                       Padding(
@@ -3155,44 +3247,56 @@ Future<void> collaborationSheet(BuildContext context) async {
   if (!context.mounted) return;
   await sheet(
     context,
-    Consumer<StudioModel>(builder: (context, m, _) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Heading(
-          title: 'Better, together.',
-          subtitle: 'Invite another creator to edit this session.',
-        ),
-        SelectableText(
-          'Project: ${m.current!['id']}\nInvite code: ${m.current!['invite_code']}',
-        ),
-        const SizedBox(height: 14),
-        TextButton.icon(
-          onPressed: () => Clipboard.setData(
-            ClipboardData(
-              text: '${m.current!['id']}\n${m.current!['invite_code']}',
+    Consumer<StudioModel>(
+      builder: (context, m, _) => m.current == null
+          ? const Heading(
+              title: 'Session access changed',
+              subtitle:
+                  'Close this sheet and open another session from your library.',
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Heading(
+                  title: 'Better, together.',
+                  subtitle: 'Invite another creator to edit this session.',
+                ),
+                SelectableText(
+                  'Project: ${m.current!['id']}\nInvite code: ${m.current!['invite_code']}',
+                ),
+                const SizedBox(height: 14),
+                TextButton.icon(
+                  onPressed: () => Clipboard.setData(
+                    ClipboardData(
+                      text: '${m.current!['id']}\n${m.current!['invite_code']}',
+                    ),
+                  ),
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text('Copy invitation'),
+                ),
+                ...m.members.map(
+                  (p) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.person_outline),
+                    title: Text(p['name']),
+                    subtitle: Text(p['role']),
+                    trailing:
+                        m.current?['owner_id'] == m.account?['id'] &&
+                            p['role'] != 'owner'
+                        ? TextButton(
+                            onPressed: m.busy
+                                ? null
+                                : () => m.removeMember(p['id']),
+                            child: const Text('Remove'),
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const JoinForm(),
+              ],
             ),
-          ),
-          icon: const Icon(Icons.copy, size: 16),
-          label: const Text('Copy invitation'),
-        ),
-        ...m.members.map(
-          (p) => ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.person_outline),
-            title: Text(p['name']),
-            subtitle: Text(p['role']),
-            trailing: m.current?['owner_id'] == m.account?['id'] && p['role'] != 'owner'
-                ? TextButton(
-                    onPressed: m.busy ? null : () => m.removeMember(p['id']),
-                    child: const Text('Remove'),
-                  )
-                : null,
-          ),
-        ),
-        const SizedBox(height: 18),
-        const JoinForm(),
-      ],
-    )),
+    ),
   );
 }
 
@@ -3297,6 +3401,21 @@ class _CommentsFormState extends State<CommentsForm> {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             subtitle: Text(c['text']),
+            trailing:
+                m.account?['id'] == c['owner_id'] ||
+                    m.account?['id'] == widget.publication['owner_id']
+                ? IconButton(
+                    tooltip: 'Remove note',
+                    onPressed: () => m.guard(() async {
+                      await m.request(
+                        'DELETE',
+                        '/showcase/${widget.publication['id']}/comments/${c['id']}',
+                      );
+                      if (mounted) setState(() => widget.comments.remove(c));
+                    }),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                  )
+                : null,
           ),
         ),
         if (m.authenticated) ...[
@@ -3326,4 +3445,384 @@ class _CommentsFormState extends State<CommentsForm> {
       ],
     );
   }
+}
+
+class EditableBeatGrid extends StatelessWidget {
+  const EditableBeatGrid({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final m = context.watch<StudioModel>();
+    final meter = (m.current!['beats_per_bar'] ?? 4) as int;
+    final bpm = (m.current!['bpm'] as num).toDouble();
+    final offset = ((m.current!['beat_offset_ms'] ?? 0) as num).toDouble();
+    final seconds = m.position.inMilliseconds / 1000;
+    final currentBar = math.max(
+      0,
+      ((seconds - offset / 1000) * bpm / 60 / meter).floor(),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('EDITABLE BEAT GRID', style: label(context)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<int>(
+          initialValue: meter,
+          decoration: const InputDecoration(labelText: 'Beats per bar'),
+          items: [
+            for (final value in [3, 4, 6, 8])
+              DropdownMenuItem(value: value, child: Text('$value/4')),
+          ],
+          onChanged: (v) => m.edit('beats_per_bar', v),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Downbeat offset ${offset.round()} ms · tap a beat to seek',
+          style: muted(context).copyWith(fontSize: 11),
+        ),
+        Slider(
+          value: offset,
+          min: -5000,
+          max: 5000,
+          divisions: 200,
+          label: '${offset.round()} ms',
+          onChanged: (v) => m.edit('beat_offset_ms', v),
+        ),
+        Wrap(
+          spacing: 5,
+          runSpacing: 5,
+          children: [
+            for (var beat = 0; beat < meter * 2; beat++)
+              ActionChip(
+                label: Text(
+                  '${currentBar + 1 + beat ~/ meter}.${beat % meter + 1}',
+                ),
+                onPressed: m.master == null
+                    ? null
+                    : () => m.seek(
+                        Duration(
+                          milliseconds:
+                              ((offset / 1000 +
+                                              (currentBar * meter + beat) *
+                                                  60 /
+                                                  bpm)
+                                          .clamp(0, m.duration) *
+                                      1000)
+                                  .round(),
+                        ),
+                      ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> voiceProfilesSheet(BuildContext context) async {
+  final m = context.read<StudioModel>();
+  await m.guard(m.loadVoiceProfiles);
+  if (context.mounted) await sheet(context, const VoiceProfilesForm());
+}
+
+class VoiceProfilesForm extends StatefulWidget {
+  const VoiceProfilesForm({super.key});
+  @override
+  State<VoiceProfilesForm> createState() => _VoiceProfilesFormState();
+}
+
+class _VoiceProfilesFormState extends State<VoiceProfilesForm> {
+  final name = TextEditingController();
+  @override
+  void dispose() {
+    name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final m = context.watch<StudioModel>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Heading(
+          title: 'Your voice, kept.',
+          subtitle:
+              'Private consented recording profiles. Reuse a real take; these profiles do not clone a voice.',
+        ),
+        if (m.current?['vocal_asset_id'] != null) ...[
+          TextField(
+            controller: name,
+            decoration: const InputDecoration(labelText: 'Voice profile name'),
+          ),
+          const SizedBox(height: 10),
+          FilledButton(
+            onPressed: m.busy
+                ? null
+                : () => m.saveVoiceProfile(name.text.trim()),
+            child: const Text('Save attached take as profile'),
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (m.voiceProfiles.isEmpty)
+          Text(
+            'Record or import your own voice with consent, then save an attached take here.',
+            style: muted(context),
+          ),
+        for (final profile in m.voiceProfiles)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(profile['name']),
+            subtitle: Text(
+              '${profile['language']} · consented original recording',
+            ),
+            trailing: Wrap(
+              children: [
+                TextButton(
+                  onPressed: m.busy
+                      ? null
+                      : () async {
+                          await m.useVoiceProfile(profile);
+                          if (context.mounted && m.error.isEmpty) {
+                            Navigator.pop(context);
+                          }
+                        },
+                  child: const Text('Use take'),
+                ),
+                IconButton(
+                  tooltip: 'Remove profile',
+                  onPressed: m.busy
+                      ? null
+                      : () => m.guard(() async {
+                          await m.request(
+                            'DELETE',
+                            '/voice-profiles/${profile['id']}',
+                          );
+                          await m.loadVoiceProfiles();
+                        }),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class ArtworkEditor extends StatefulWidget {
+  const ArtworkEditor({super.key});
+  @override
+  State<ArtworkEditor> createState() => _ArtworkEditorState();
+}
+
+class _ArtworkEditorState extends State<ArtworkEditor> {
+  String template = 'halo', accent = '#9877DE', background = '#191C2B';
+  final caption = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+    final style = context.read<StudioModel>().current?['artwork'] as Map?;
+    template = style?['template'] ?? template;
+    accent = style?['accent'] ?? accent;
+    background = style?['background'] ?? background;
+    caption.text = style?['caption'] ?? '';
+  }
+
+  @override
+  void dispose() {
+    caption.dispose();
+    super.dispose();
+  }
+
+  Color color(String hex) =>
+      Color(int.parse(hex.replaceFirst('#', 'FF'), radix: 16));
+  @override
+  Widget build(BuildContext context) {
+    final m = context.watch<StudioModel>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Heading(
+          title: 'A cover with character.',
+          subtitle:
+              'Choose an original template, palette and caption. Render a real 1024 px cover.',
+        ),
+        Center(
+          child: SizedBox(
+            width: 230,
+            height: 230,
+            child: Container(
+              decoration: BoxDecoration(
+                color: color(background),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: CustomPaint(
+                      painter: MarkPainter(color(accent)),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    m.title,
+                    maxLines: 2,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    caption.text,
+                    maxLines: 1,
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          initialValue: template,
+          decoration: const InputDecoration(labelText: 'Cover template'),
+          items: const [
+            DropdownMenuItem(value: 'halo', child: Text('Halo')),
+            DropdownMenuItem(value: 'wave', child: Text('Wave')),
+            DropdownMenuItem(value: 'minimal', child: Text('Minimal')),
+          ],
+          onChanged: (v) => setState(() => template = v!),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: accent,
+          decoration: const InputDecoration(labelText: 'Accent palette'),
+          items: const [
+            DropdownMenuItem(value: '#9877DE', child: Text('Amethyst')),
+            DropdownMenuItem(value: '#E1AE96', child: Text('Apricot')),
+            DropdownMenuItem(value: '#75A58D', child: Text('Sage')),
+          ],
+          onChanged: (v) => setState(() => accent = v!),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: background,
+          decoration: const InputDecoration(labelText: 'Cover background'),
+          items: const [
+            DropdownMenuItem(value: '#191C2B', child: Text('Midnight')),
+            DropdownMenuItem(value: '#3C2A3E', child: Text('Plum')),
+            DropdownMenuItem(value: '#243C39', child: Text('Forest')),
+          ],
+          onChanged: (v) => setState(() => background = v!),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: caption,
+          maxLength: 80,
+          decoration: const InputDecoration(labelText: 'Cover caption'),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: m.busy
+              ? null
+              : () async {
+                  await m.createArtwork({
+                    'template': template,
+                    'accent': accent,
+                    'background': background,
+                    'caption': caption.text,
+                  });
+                  if (context.mounted && m.error.isEmpty) {
+                    Navigator.pop(context);
+                  }
+                },
+          child: const Text('Render cover'),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Preview shows your identity/palette; the selected template is applied to the rendered cover. Optional AI artwork is not configured.',
+          style: muted(context),
+        ),
+      ],
+    );
+  }
+}
+
+class VideoPreview extends StatefulWidget {
+  const VideoPreview({super.key, required this.url});
+  final String url;
+  @override
+  State<VideoPreview> createState() => _VideoPreviewState();
+}
+
+class _VideoPreviewState extends State<VideoPreview> {
+  late final VideoPlayerController controller;
+  String failure = '';
+  @override
+  void initState() {
+    super.initState();
+    controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    controller
+        .initialize()
+        .then((_) {
+          if (mounted) setState(() {});
+        })
+        .catchError((Object error) {
+          if (mounted) {
+            setState(
+              () => failure =
+                  'Video preview is unavailable on this device. Download the real MP4 and open it in a video player.',
+            );
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Heading(
+        title: 'Watch your sound.',
+        subtitle: 'The completed portrait visualizer and actual master.',
+      ),
+      if (failure.isNotEmpty)
+        Text(failure)
+      else if (!controller.value.isInitialized)
+        const Center(child: CircularProgressIndicator())
+      else ...[
+        Center(
+          child: SizedBox(
+            height: 360,
+            child: AspectRatio(
+              aspectRatio: controller.value.aspectRatio,
+              child: VideoPlayer(controller),
+            ),
+          ),
+        ),
+        VideoProgressIndicator(
+          controller,
+          allowScrubbing: true,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+        ValueListenableBuilder(
+          valueListenable: controller,
+          builder: (context, value, _) => FilledButton.icon(
+            onPressed: () =>
+                value.isPlaying ? controller.pause() : controller.play(),
+            icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow),
+            label: Text(value.isPlaying ? 'Pause video' : 'Play video'),
+          ),
+        ),
+      ],
+    ],
+  );
 }

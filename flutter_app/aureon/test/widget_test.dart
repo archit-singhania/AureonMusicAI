@@ -102,4 +102,67 @@ void main() {
     expect(header.getUint32(40, Endian.little), pcm.length);
     expect(bytes.sublist(44), pcm);
   });
+  testWidgets('Beat grid changes meter and retains an editable offset', (
+    tester,
+  ) async {
+    final model = StudioModel(start: false);
+    model.current = {
+      'id': 'grid-session',
+      'bpm': 120,
+      'beats_per_bar': 4,
+      'beat_offset_ms': 125,
+    };
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: model,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(child: EditableBeatGrid()),
+          ),
+        ),
+      ),
+    );
+    expect(
+      find.text('Downbeat offset 125 ms · tap a beat to seek'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('4/4'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3/4').last);
+    await tester.pumpAndSettle();
+    expect(model.current!['beats_per_bar'], 3);
+    expect(find.text('1.4'), findsNothing);
+    expect(model.dirty, isTrue);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    model.dispose();
+  });
+  testWidgets(
+    'Cover editor offers real template and palette choices at phone width',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final model = StudioModel(start: false);
+      model.current = {'id': 'cover-session', 'title': 'Original artwork'};
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: model,
+          child: const MaterialApp(
+            home: Scaffold(body: SingleChildScrollView(child: ArtworkEditor())),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Halo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Wave').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Wave'), findsOneWidget);
+      expect(find.text('Render cover'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      model.dispose();
+    },
+  );
 }

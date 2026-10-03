@@ -6,14 +6,14 @@ The interface uses an original A/soundwave identity, pearl and graphite palettes
 
 ## Start locally
 
-Use Python 3.12, .NET SDK 10, Flutter 3.47.3, and FFmpeg. The production core has no GPU or model-download requirement. Optional ML experiments remain outside the core workflow.
+Use Python 3.11 (recommended for optional ML) or 3.12, .NET SDK 10, Flutter 3.47.3, and FFmpeg. The production core has no GPU or model-download requirement. Optional ML experiments remain outside the core workflow.
 
 ```powershell
-python -m venv .runtime
-.runtime\Scripts\python -m pip install -r python_audio_service/requirements-dev.txt
+py -3.11 -m venv .runtime311
+.runtime311\Scripts\python -m pip install -r python_audio_service/requirements-dev.txt
 # Install FFmpeg on PATH, or use the optional portable resolver:
-.runtime\Scripts\python -m pip install imageio-ffmpeg
-.\start-local.ps1 -Python "$PWD\.runtime\Scripts\python.exe"
+.runtime311\Scripts\python -m pip install imageio-ffmpeg
+.\start-local.ps1 -Python "$PWD\.runtime311\Scripts\python.exe"
 cd flutter_app/aureon
 flutter pub get
 flutter run -d chrome --web-port 3005 --dart-define=API_BASE_URL=http://localhost:5000
@@ -31,20 +31,20 @@ For an existing public hosting account, use the target mapping and environment i
 
 ## Capabilities and evidence
 
-See [the 20-capability matrix](docs/CAPABILITIES.md), [architecture](docs/ARCHITECTURE.md), [verification record](docs/VERIFICATION.md), and [portfolio walkthrough](docs/PORTFOLIO.md). The core is runnable without paid providers. Sarvam speech/transcription requires a key; lyric assistance requires a running Ollama model; XTTS is optional and unverified in this environment. Imported stems use approximate spectral DSP, while generated presets have original instrument stems. Speech synthesis is explicitly speech, not AI singing.
+See [manual testing](docs/MANUAL_TESTING.md), [the release plan](docs/RELEASE_PLAN.md), [the 20-capability matrix](docs/CAPABILITIES.md), [architecture](docs/ARCHITECTURE.md), [verification record](docs/VERIFICATION.md), and [portfolio walkthrough](docs/PORTFOLIO.md). The core is runnable without paid providers. Sarvam speech/transcription requires a key; lyric assistance requires a running Ollama model; XTTS is optional and unverified in this environment. Imported separation offers labeled approximate spectral DSP or an installed Demucs engine; generated presets have original instrument stems. Speech synthesis is explicitly speech, not AI singing.
 
 ```powershell
-.runtime\Scripts\python -m pytest tests/test_studio.py tests/test_providers.py -q
+.runtime311\Scripts\python -m pytest tests/test_studio.py tests/test_providers.py -q
 dotnet build dotnet_backend/AureonApi -c Release
 $env:AUREON_GATEWAY_URL='http://localhost:5000'
-.runtime\Scripts\python -m pytest tests/test_gateway.py -q
+.runtime311\Scripts\python -m pytest tests/test_gateway.py -q
 cd flutter_app/aureon
 flutter analyze
 flutter test
 flutter build web --release
 ```
 
-Android, iOS, web, and Windows runners and original launcher icons are included. Web has been built and tested here. Native microphone/audio/filesystem flows need actual-device verification; iOS needs macOS/Xcode, Android needs an Android toolchain, and this Windows host requires Developer Mode for native plugin symlinks.
+Android, iOS, web and Windows runners and original launcher icons are included. Web release and Android debug builds passed locally. The APK, emulator gateway mapping and SHA-256 are recorded in [verification](docs/VERIFICATION.md). Native microphone/audio/filesystem flows need actual-device verification; iOS needs macOS/Xcode and this Windows host requires Developer Mode for native plugin symlinks.
 
 ## Optional providers
 

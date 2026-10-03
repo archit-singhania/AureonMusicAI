@@ -12,12 +12,15 @@ flowchart LR
   Redis[(Redis wake-up)] --> Queue
   Queue --> DSP[NumPy / SciPy / Librosa DSP + FFmpeg]
   DSP --> Media
-  Queue -->|Optional configured requests| Providers[Sarvam / Ollama / XTTS]
+  Queue -->|Optional speech adapters| Providers[Sarvam / XTTS]
+  Queue -->|Explicit installed engine| Neural[Demucs neural separation]
+  API -->|Optional lyric request| LLM[Ollama]
+  API --> Cover[Pillow artwork templates]
 ```
 
-The database is authoritative for users, hashed sessions, versioned project documents, immutable snapshots, jobs, assets, membership, publication, and events. SQLAlchemy provides SQLite for local use and Postgres for compose. Revision-checked updates prevent silent overwrite. The JSON document model is appropriate for evolving studio state; promote hot query fields into normalized/indexed tables when real traffic supports it.
+The database is authoritative for users, hashed sessions, versioned project documents, immutable snapshots, durable undo/redo stacks, consented voice profiles, jobs, assets, membership, publication, and events. SQLAlchemy provides SQLite for local use and Postgres for compose. Revision-checked updates prevent silent overwrite. The JSON document model is appropriate for evolving studio state; promote hot query fields into normalized/indexed tables when real traffic supports it.
 
-A worker claims queued or stale jobs using revision compare-and-swap, snapshots input state, runs actual DSP outside the request loop, and writes durable progress/results. Redis shortens queue wake-up; a missing Redis never loses the database job. Cancellation is checked between processing stages and cannot interrupt an active native operation immediately. Workers use a 10-minute stale lease; very long external inference needs a longer/renewed lease before scaling to multiple workers.
+One local worker processes jobs sequentially, with up to three pending jobs per project. It claims queued or stale jobs using revision compare-and-swap, snapshots input state, runs actual DSP outside the request loop, and writes durable progress/results. Redis shortens queue wake-up; a missing Redis never loses the database job. Cancellation is checked between processing stages and cannot interrupt an active native operation immediately. Workers use a 10-minute stale lease; very long external inference needs a longer/renewed lease before scaling to multiple workers.
 
 The .NET gateway streams HTTP and byte ranges, preserves snake_case JSON, limits request rate/size, and controls origin access. MusicHub verifies tokens and project access before joining. Outbox relay rechecks current membership before delivering each event, so revoked sessions stop receiving updates. Flutter also replays authenticated events and polls job state for resilience. Tokens in SignalR query parameters must be redacted in production proxy logs.
 
@@ -25,7 +28,7 @@ Asset paths must stay under the configured private media root. Signed media URLs
 
 Flutter separates API/session/audio coordination (`studio_model.dart`) from the visual workspace (`studio_ui.dart`). A common master clock drives preloaded stem players and bounded skew correction. Live gain preview is limited to player-supported unit gain; rendered gain supports up to 2x and is bounded by peak protection. Effects apply to the rendered master. A/B uses measured LUFS to attenuate the louder master. This browser/native player arrangement is not sample-accurate professional DAW synchronization.
 
-All visual metrics are derived from real decoded samples. Presets are deterministic original music without downloaded licensed loops. Imported separation is approximate DSP, not Demucs. Optional speech does not imply singing, identity cloning, or provider-free inference.
+All visual metrics are derived from real decoded samples. Presets are deterministic original music without downloaded licensed loops. Imported separation offers clearly labeled approximate spectral DSP or an explicitly selected installed Demucs engine. Demucs must produce four actual decoded stems; failure never substitutes DSP. Its weights/hardware and real inference are external gates. Optional speech does not imply singing, identity cloning, or provider-free inference.
 
 ## Deployment gates
 

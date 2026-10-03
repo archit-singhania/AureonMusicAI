@@ -84,6 +84,8 @@ class StudioModel extends ChangeNotifier {
       saving = false,
       stemMode = false;
   bool refreshingPublic = false;
+  bool canUndo = false, canRedo = false;
+  List<Json> voiceProfiles = [];
   bool comparingPrevious = false, loudnessMatched = true;
   Json? previousMaster;
   Timer? driftTimer;
@@ -354,6 +356,10 @@ class StudioModel extends ChangeNotifier {
         'key',
         'language',
         'engine',
+        'separation_engine',
+        'beat_offset_ms',
+        'beats_per_bar',
+        'artwork',
         'params',
       ])
         if (snapshot.containsKey(key)) key: snapshot[key],
@@ -372,6 +378,8 @@ class StudioModel extends ChangeNotifier {
         ),
       );
       updateLibraryProject(result);
+      canUndo = true;
+      canRedo = false;
       if (current?['id'] == editingProjectId) {
         if (dirty) {
           current!['revision'] = result['revision'];
@@ -440,6 +448,7 @@ class StudioModel extends ChangeNotifier {
             await request('GET', '/projects/${current!['id']}'),
           );
           updateLibraryProject(current!);
+          await loadVersions();
         }
       }
       await refreshMaster();
@@ -700,6 +709,12 @@ class StudioModel extends ChangeNotifier {
       versions = list(
         await request('GET', '/projects/${current!['id']}/versions'),
       );
+      final history = await request(
+        'GET',
+        '/projects/${current!['id']}/history',
+      );
+      canUndo = history['can_undo'] == true;
+      canRedo = history['can_redo'] == true;
     }
     notifyListeners();
   }
@@ -732,6 +747,49 @@ class StudioModel extends ChangeNotifier {
     await reload();
     await selectProject(p);
   });
+  Future<void> navigateHistory(String direction) => guard(() async {
+    await save();
+    current = Json.from(
+      await request(
+        'POST',
+        '/projects/${current!['id']}/$direction',
+        data: {'revision': current!['revision']},
+      ),
+    );
+    dirty = false;
+    updateLibraryProject(current!);
+    await loadVersions();
+  });
+
+  Future<void> loadVoiceProfiles() async {
+    voiceProfiles = list(await request('GET', '/voice-profiles'));
+    notifyListeners();
+  }
+
+  Future<void> saveVoiceProfile(String name) => guard(() async {
+    await request(
+      'POST',
+      '/voice-profiles',
+      data: {
+        'name': name,
+        'asset_id': current!['vocal_asset_id'],
+        'language': current!['language'],
+      },
+    );
+    await loadVoiceProfiles();
+  });
+
+  Future<void> useVoiceProfile(Json profile) => guard(() async {
+    final take = await request(
+      'POST',
+      '/projects/${current!['id']}/voice-profiles/${profile['id']}/use',
+    );
+    edit('vocal_asset_id', take['id']);
+    edit('engine', 'recording');
+    edit('language', profile['language']);
+    await save();
+    assets = list(await request('GET', '/assets'));
+  });
   Future<void> removeMember(String id) => guard(() async {
     await save();
     final projectId = current!['id'];
@@ -750,8 +808,15 @@ class StudioModel extends ChangeNotifier {
     await refreshPublic();
     destination = 2;
   });
-  Future<void> createArtwork() => guard(() async {
-    final a = await request('POST', '/projects/${current!['id']}/artwork');
+  Future<void> createArtwork([Json? options]) => guard(() async {
+    await save();
+    final style = options ?? Json.from(current!['artwork'] ?? {});
+    final a = await request(
+      'POST',
+      '/projects/${current!['id']}/artwork',
+      data: style,
+    );
+    edit('artwork', style);
     edit('cover_asset_id', a['id']);
     await save();
     assets = list(await request('GET', '/assets'));

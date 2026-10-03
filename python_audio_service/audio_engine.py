@@ -4,9 +4,11 @@ No pretend model inference: local presets are explicitly algorithmic instruments
 """
 
 import math
+import importlib.util
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 import numpy as np
 import soundfile as sf
@@ -226,7 +228,52 @@ def synthesize_preset(preset_id, directory, bars=8, bpm=None, key=None):
     return path, stems, preset
 
 
-def separate(path, directory):
+def separate(path, directory, engine="spectral-dsp"):
+    if engine == "demucs":
+        if not importlib.util.find_spec("demucs"):
+            raise ValueError(
+                "Demucs is not installed. Install the optional neural environment or select approximate spectral DSP."
+            )
+        model = os.getenv("DEMUCS_MODEL", "htdemucs")
+        device = os.getenv("DEMUCS_DEVICE", "cpu")
+        if model not in ("htdemucs", "htdemucs_ft", "mdx_extra") or device not in (
+            "cpu",
+            "cuda",
+        ):
+            raise ValueError("Unsupported Demucs model/device configuration.")
+        destination = Path(directory) / "neural"
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "demucs.separate",
+                "--name",
+                model,
+                "--device",
+                device,
+                "--out",
+                str(destination),
+                str(Path(path).resolve()),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=420,
+        )
+        if result.returncode:
+            raise ValueError(
+                "Demucs separation failed. Check optional model weights, hardware and the worker logs; no approximate substitute was used."
+            )
+        folder = destination / model / Path(path).stem
+        stems = {}
+        for name in STEM_NAMES:
+            source = folder / f"{name}.wav"
+            if not source.is_file():
+                raise ValueError(f"Demucs did not produce its {name} stem.")
+            y, sr = read_audio(source)
+            stems[name] = write_audio(Path(directory) / f"{name}.wav", y, sr)
+        return stems, f"demucs:{model}:{device}"
+    if engine != "spectral-dsp":
+        raise ValueError("Choose spectral-dsp or demucs separation.")
     y, sr = read_audio(path)
     mono = y.mean(axis=1)
     import librosa
