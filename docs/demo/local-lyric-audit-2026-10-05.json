@@ -4,7 +4,7 @@
   "model": "qwen3:8b",
   "prompt": "Write exactly two short original lines about finding a melody at sunrise. Return only the lyrics.",
   "http_status": 503,
-  "elapsed_seconds": 2.31,
+  "elapsed_seconds": 2.56,
   "result": {
     "detail": "Lyric provider is unavailable. Your draft was preserved."
   }

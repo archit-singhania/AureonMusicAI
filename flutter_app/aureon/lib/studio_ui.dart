@@ -156,6 +156,9 @@ class StudioShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final m = context.watch<StudioModel>();
     final wide = MediaQuery.sizeOf(context).width >= 1000;
+    final roomyRail =
+        MediaQuery.sizeOf(context).height >= 850 &&
+        MediaQuery.textScalerOf(context).scale(14) <= 18;
     final page = [
       const StudioPage(),
       const LibraryPage(),
@@ -199,8 +202,9 @@ class StudioShell extends StatelessWidget {
               child: Row(
                 children: [
                   if (wide)
-                    SizedBox(
-                      width: 220,
+                    Container(
+                      width: 236,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
                       child: Panel(
                         glass: true,
                         padding: const EdgeInsets.fromLTRB(24, 26, 16, 24),
@@ -208,7 +212,7 @@ class StudioShell extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Brand(),
-                            const SizedBox(height: 44),
+                            SizedBox(height: roomyRail ? 44 : 24),
                             Text('WORKSPACE', style: label(context)),
                             const SizedBox(height: 14),
                             ...List.generate(
@@ -227,43 +231,46 @@ class StudioShell extends StatelessWidget {
                               ),
                             ),
                             const Spacer(),
-                            Panel(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.auto_awesome_outlined,
-                                    color: violet,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  const Text(
-                                    'A little room to create.',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
+                            if (roomyRail)
+                              Panel(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.auto_awesome_outlined,
+                                      color: violet,
                                     ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'From the first spark to the final master.',
-                                    style: muted(context),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    m.online
-                                        ? 'Studio connected'
-                                        : 'Waiting for studio',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: m.online
-                                          ? statusGreen(context)
-                                          : Theme.of(context).colorScheme.error,
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'A little room to create.',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'From the first spark to the final master.',
+                                      style: muted(context),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      m.online
+                                          ? 'Studio connected'
+                                          : 'Waiting for studio',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: m.online
+                                            ? statusGreen(context)
+                                            : Theme.of(
+                                                context,
+                                              ).colorScheme.error,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 22),
+                            const SizedBox(height: 16),
                             Text(
                               'AUREON  /  MUSIC STUDIO',
                               style: label(
@@ -1517,6 +1524,21 @@ class MasterPanel extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
+                Semantics(
+                  label: 'Seek project master',
+                  child: Slider(
+                    value:
+                        (m.previewing
+                                ? 0.0
+                                : m.position.inMilliseconds.toDouble())
+                            .clamp(0, duration * 1000),
+                    max: math.max(1.0, duration * 1000),
+                    onChanged: (value) =>
+                        m.seekMaster(Duration(milliseconds: value.round())),
+                    semanticFormatterCallback: (value) =>
+                        '${(value / 1000).round()} seconds of ${duration.round()}',
+                  ),
+                ),
                 SizedBox(
                   height: 56,
                   width: double.infinity,
@@ -1525,7 +1547,11 @@ class MasterPanel extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  alignment: WrapAlignment.spaceBetween,
                   children: [
                     FilledButton.icon(
                       onPressed: m.togglePlay,
@@ -1538,7 +1564,6 @@ class MasterPanel extends StatelessWidget {
                         m.playing && !m.previewing ? 'Pause' : 'Play master',
                       ),
                     ),
-                    const Spacer(),
                     Text(
                       '${clock(m.previewing ? 0 : m.position.inSeconds)} / ${clock(duration.round())}',
                       style: muted(context),
@@ -1692,9 +1717,14 @@ class MixerPanel extends StatelessWidget {
           Heading(
             title: 'A place for every layer',
             subtitle: 'Balance the instruments. Hear the whole.',
-            action: Switch(
-              value: m.stemMode,
-              onChanged: m.stemAssets.isEmpty ? null : (v) => m.toggleStems(v),
+            action: Tooltip(
+              message: 'Live stem balance',
+              child: Switch(
+                value: m.stemMode,
+                onChanged: m.stemAssets.isEmpty
+                    ? null
+                    : (v) => m.toggleStems(v),
+              ),
             ),
           ),
           ...['vocals', 'drums', 'bass', 'other'].map(
@@ -1743,14 +1773,17 @@ class MixerPanel extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: Slider(
-                      min: 0,
-                      max: 2,
-                      value: ((m.params['${name}_gain'] ?? .8) as num)
-                          .toDouble(),
-                      onChanged: (v) => m.setParam('${name}_gain', v),
-                      semanticFormatterCallback: (v) =>
-                          '${(v * 100).round()} percent',
+                    child: Semantics(
+                      label: '$name gain',
+                      child: Slider(
+                        min: 0,
+                        max: 2,
+                        value: ((m.params['${name}_gain'] ?? .8) as num)
+                            .toDouble(),
+                        onChanged: (v) => m.setParam('${name}_gain', v),
+                        semanticFormatterCallback: (v) =>
+                            '${(v * 100).round()} percent',
+                      ),
                     ),
                   ),
                   SizedBox(
@@ -1848,10 +1881,13 @@ class InspectorPanel extends StatelessWidget {
                     ),
                   ],
                 ),
-                Slider(
-                  value: ((m.params[control.key] ?? 0) as num).toDouble(),
-                  max: control.max,
-                  onChanged: (v) => m.setParam(control.key, v),
+                Semantics(
+                  label: control.name,
+                  child: Slider(
+                    value: ((m.params[control.key] ?? 0) as num).toDouble(),
+                    max: control.max,
+                    onChanged: (v) => m.setParam(control.key, v),
+                  ),
                 ),
               ],
             ),
@@ -3137,17 +3173,20 @@ class _RecordingFormState extends State<RecordingForm> {
                           }
                         },
                         onError: (Object error) {
-                          if (mounted)
+                          if (mounted) {
                             setState(
                               () => message =
                                   'Microphone input stopped. Save your captured take or try again.',
                             );
-                          if (pcmDone?.isCompleted == false)
+                          }
+                          if (pcmDone?.isCompleted == false) {
                             pcmDone!.complete();
+                          }
                         },
                         onDone: () {
-                          if (pcmDone?.isCompleted == false)
+                          if (pcmDone?.isCompleted == false) {
                             pcmDone!.complete();
+                          }
                         },
                       );
                       setState(() {

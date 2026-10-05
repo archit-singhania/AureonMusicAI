@@ -4,6 +4,8 @@ This guide tests the original 20 product capabilities. Responsive premium appear
 
 ## Open or start the local release
 
+Use [the fresh 5 October full audit](FULL-AUDIT-2026-10-05.md) for the latest release checks and artifact hashes. The final UI now has floating Liquid Glass-inspired navigation/transport/sheets, bundled Inter typography and readable solid audio/editing surfaces. In Settings, test Light/Dark/System, Reduce motion, Reduce transparency and Increase contrast: solid fallback must remove the blur while retaining every control. Covered public tracks must retain Play track; preset/showcase previews must display their own transport title and duration; Play master must restore the project's actual master.
+
 The prepared preview is **http://localhost:3005**; its release files are `flutter_app/aureon/build/web`. Gateway: `http://localhost:5000`; Python: `http://127.0.0.1:8103`. Open the existing preview directly when services are running. A second launcher intentionally refuses occupied ports.
 
 For a fresh start in this workspace, open PowerShell at `D:\remaining-4-git-projs\AureonMusicAI`:

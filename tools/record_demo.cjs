@@ -12,7 +12,7 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
  const browser = await chromium.launch({channel:'chrome', headless:true, args:['--use-fake-device-for-media-stream']});
  const context = await browser.newContext({viewport:{width:1440,height:1000}, permissions:['microphone'], recordVideo:{dir:output,size:{width:1440,height:1000}}, acceptDownloads:true});
  const page = await context.newPage();
- const errors=[]; const completed=[];
+ const errors=[]; const completed=[]; let frameSample=null;
  page.on('pageerror', error => errors.push(error.message));
  const pause = ms => page.waitForTimeout(ms);
  try {
@@ -37,6 +37,18 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   await play.evaluate(e=>e.click());
   await page.getByRole('button',{name:'Pause',exact:true}).waitFor({state:'visible',timeout:15000});
   await pause(3000);
+  frameSample=await page.evaluate(() => new Promise(resolve => {
+    const intervals=[]; let previous=performance.now();
+    const sample=now=>{intervals.push(now-previous);previous=now;
+      if(intervals.length<120) requestAnimationFrame(sample);
+      else {intervals.shift();intervals.sort((a,b)=>a-b);resolve({
+        renderer:'Headless Chrome; desktop1440x1000; actual master playing',
+        frames:intervals.length, median_ms:Number(intervals[Math.floor(intervals.length/2)].toFixed(2)),
+        p95_ms:Number(intervals[Math.floor(intervals.length*.95)].toFixed(2)),
+        scope:'Browser frame scheduling sample, not reference-device GPU profiling',
+      });}
+    };requestAnimationFrame(sample);
+  }));
   await page.getByRole('button',{name:'Pause',exact:true}).evaluate(e=>e.click());
   completed.push('Real master playback started and paused');
   const title = page.getByRole('textbox',{name:/Session title/}).first();
@@ -114,19 +126,34 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   completed.push('Covered publication retained actual playback and a correct preview transport');
   await page.getByRole('button',{name:'Unpublish',exact:true}).first().evaluate(e=>e.click());
   completed.push('Owned publication removed through UI');
+  await page.getByRole('button',{name:'Studio',exact:true}).evaluate(e=>e.click());
+  await page.getByRole('button',{name:'Record',exact:true}).evaluate(e=>e.click());
+  await page.getByRole('checkbox',{name:/This is my voice, or I have permission/}).evaluate(e=>e.click());
+  await page.getByRole('button',{name:'Start recording',exact:true}).evaluate(e=>e.click());
+  const stopRecording=page.getByRole('button',{name:'Stop & save recording',exact:true});
+  await stopRecording.waitFor({state:'visible',timeout:15000});
+  await pause(2200);
+  await stopRecording.evaluate(e=>e.click());
+  await page.getByRole('button',{name:'Start recording',exact:true}).waitFor({state:'hidden',timeout:20000});
+  completed.push('Consented synthetic Chrome microphone fixture finalized a real uploaded WAV take');
   await page.getByRole('button',{name:'Settings',exact:true}).evaluate(e=>e.click());
   await page.getByLabel('Dark',{exact:true}).evaluate(e=>e.click());
   await pause(800);
   await page.screenshot({path:path.join(screenshots,'settings-dark.png')});
   await page.setViewportSize({width:390,height:1000}); await pause(500);
   await page.screenshot({path:path.join(screenshots,'settings-phone-dark.png')});
+  await page.getByRole('button',{name:'Studio',exact:true}).evaluate(e=>e.click());
+  await pause(600);
+  await page.screenshot({path:path.join(screenshots,'studio-phone-dark.png')});
+  await page.setViewportSize({width:1440,height:1000}); await pause(600);
+  await page.screenshot({path:path.join(screenshots,'studio-dark.png')});
   completed.push('Dark appearance and floating mobile dock inspected on actual release');
  } finally {
   const video=page.video();
   await context.close();
   await video.saveAs(path.join(output,'guest-workflow.webm'));
   await browser.close();
-  fs.writeFileSync(path.join(output,'guest-workflow-evidence.json'),JSON.stringify({date:new Date().toISOString(),fixture:'Isolated guest workspace using original preset composition',url:process.env.AUREON_PREVIEW || 'http://localhost:3005',completed,page_errors:errors,video_audio:'Silent browser screen recording; actual exported master is supplied separately.'},null,2));
+  fs.writeFileSync(path.join(output,'guest-workflow-evidence.json'),JSON.stringify({date:new Date().toISOString(),fixture:'Isolated guest workspace using original preset composition',url:process.env.AUREON_PREVIEW || 'http://localhost:3005',completed,page_errors:errors,frame_sample:frameSample,video_audio:'Silent browser screen recording; actual exported master is supplied separately.'},null,2));
   console.log(JSON.stringify({completed,page_errors:errors}));
   if (errors.length) process.exitCode=1;
  }

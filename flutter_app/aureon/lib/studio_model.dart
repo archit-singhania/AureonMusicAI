@@ -502,9 +502,10 @@ class StudioModel extends ChangeNotifier {
         await request('GET', '/assets/${completed[1]['master_asset_id']}'),
       );
     }
-    await player.setUrl(url(master!['url']));
-    previewing = false;
-    position = Duration.zero;
+    if (!previewing) {
+      await player.setUrl(url(master!['url']));
+      position = Duration.zero;
+    }
   }
 
   Future<void> connectLive() async {

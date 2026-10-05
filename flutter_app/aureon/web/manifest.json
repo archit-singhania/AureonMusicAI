@@ -1,12 +1,12 @@
 {
-    "name": "aureon",
-    "short_name": "aureon",
+    "name": "Aureon Music Studio",
+    "short_name": "Aureon",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#F2F1ED",
+    "theme_color": "#7862B7",
+    "description": "Your sound, considered. Compose, record, mix and share original music from a private versioned studio.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
