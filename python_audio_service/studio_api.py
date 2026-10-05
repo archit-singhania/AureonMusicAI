@@ -1192,14 +1192,17 @@ async def lyrics(body: Prompt, current=Depends(user)):
                     "model": os.getenv("OLLAMA_MODEL", "qwen2.5:3b"),
                     "prompt": f"Write original song lyrics. Context: {body.context}\nInstruction: {body.prompt}",
                     "stream": False,
+                    "think": False,
+                    "options": {"num_predict": 384},
                 },
             )
             r.raise_for_status()
-            text = r.json().get("response", "").strip()
-            if not text:
+            body = r.json()
+            text = body.get("response") if isinstance(body, dict) else None
+            if not isinstance(text, str) or not text.strip():
                 raise ValueError("Lyric provider returned an empty response.")
-            return {"lyrics": text, "source": "ollama"}
-    except httpx.HTTPError:
+            return {"lyrics": text.strip(), "source": "ollama"}
+    except (httpx.HTTPError, ValueError, TypeError):
         raise HTTPException(
             503, "Lyric provider is unavailable. Your draft was preserved."
         )

@@ -29,6 +29,43 @@ def account(client):
     return {"Authorization": "Bearer " + body["token"]}, body
 
 
+@pytest.mark.parametrize(
+    "payload", [[], {}, {"response": 5}, {"response": "   "}, "invalid-json"]
+)
+def test_invalid_lyric_provider_preserves_the_saved_draft(client, monkeypatch, payload):
+    import httpx
+
+    headers, original = account(client)
+    monkeypatch.setenv("OLLAMA_URL", "http://provider.invalid")
+    monkeypatch.setenv("OLLAMA_MODEL", "selected-test-model")
+
+    class InvalidProvider:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def post(self, url, json):
+            assert json["model"] == "selected-test-model"
+            assert json["stream"] is False and json["options"]["num_predict"] == 384
+            options = {"content": b"not-json"} if payload == "invalid-json" else {"json": payload}
+            return httpx.Response(200, request=httpx.Request("POST", url), **options)
+
+    monkeypatch.setattr(httpx, "AsyncClient", InvalidProvider)
+    result = client.post(
+        "/api/v1/lyrics", headers=headers,
+        json={"prompt": "Suggest an original verse", "context": "Preserve these words"},
+    )
+    assert result.status_code == 503
+    assert "draft was preserved" in result.json()["detail"]
+    saved = client.get("/api/v1/projects/" + original["project"]["id"], headers=headers).json()
+    assert saved["lyrics"] == original["project"]["lyrics"]
+
+
 def wait(client, headers, jid):
     deadline = time.monotonic() + 40
     while time.monotonic() < deadline:

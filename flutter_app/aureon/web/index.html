@@ -31,8 +31,23 @@
 
   <title>Aureon · Your sound, considered</title>
   <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#F2F1ED">
+  <style>
+    body { margin: 0; background: #F2F1ED; color: #22242C; font-family: system-ui, sans-serif; }
+    #studio-loading { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; gap: 18px; }
+    #studio-loading svg { margin: auto; width: 64px; height: 64px; }
+    #studio-loading-status { font-size: 14px; }
+    #studio-retry { background: #7862B7; color: white; border: 0; border-radius: 14px; padding: 15px 24px; font: inherit; cursor: pointer; }
+    #studio-retry[hidden] { display: none; }
+    @media (prefers-color-scheme: dark) { body { background: #15171E; color: #FAF9F6; } }
+  </style>
 </head>
 <body>
+  <div id="studio-loading" role="status" aria-live="polite">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="20" fill="#7862B7"/><path d="M14 48 32 15 50 48M25 44V36M31 44V30M37 44V26M43 44V34" fill="none" stroke="#FAF9F6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div id="studio-loading-status">Preparing your studio…</div>
+    <button id="studio-retry" hidden>Reload studio</button>
+  </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

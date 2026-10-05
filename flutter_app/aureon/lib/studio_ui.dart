@@ -1,25 +1,36 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:record/record.dart';
 import 'studio_model.dart';
+import 'liquid_glass.dart';
 
 const violet = Color(0xFF7862B7);
 const peach = Color(0xFFE1AE96);
+Color statusGreen(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark
+    ? const Color(0xFFA3D9B7)
+    : const Color(0xFF286147);
 
 class AureonApp extends StatelessWidget {
   const AureonApp({super.key});
-  static ThemeData theme(Brightness brightness) {
+  static ThemeData theme(Brightness brightness, {bool highContrast = false}) {
     final dark = brightness == Brightness.dark;
-    final scheme = ColorScheme.fromSeed(
+    var scheme = ColorScheme.fromSeed(
       seedColor: violet,
       brightness: brightness,
       surface: dark ? const Color(0xFF22242C) : const Color(0xFFFAF9F6),
     );
+    if (highContrast) {
+      scheme = scheme.copyWith(
+        onSurface: dark ? Colors.white : const Color(0xFF111117),
+        outline: dark ? const Color(0xFFCFCDD7) : const Color(0xFF4C4657),
+      );
+    }
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
@@ -106,13 +117,17 @@ class AureonApp extends StatelessWidget {
     return MaterialApp(
       title: 'Aureon · Your sound, considered',
       debugShowCheckedModeBanner: false,
-      theme: theme(Brightness.light),
-      darkTheme: theme(Brightness.dark),
+      theme: theme(Brightness.light, highContrast: model.highContrast),
+      darkTheme: theme(Brightness.dark, highContrast: model.highContrast),
+      highContrastTheme: theme(Brightness.light, highContrast: true),
+      highContrastDarkTheme: theme(Brightness.dark, highContrast: true),
       themeMode: model.themeMode,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
           disableAnimations:
               model.reduceMotion || MediaQuery.of(context).disableAnimations,
+          highContrast:
+              model.highContrast || MediaQuery.of(context).highContrast,
         ),
         child: child!,
       ),
@@ -186,7 +201,8 @@ class StudioShell extends StatelessWidget {
                   if (wide)
                     SizedBox(
                       width: 220,
-                      child: Padding(
+                      child: Panel(
+                        glass: true,
                         padding: const EdgeInsets.fromLTRB(24, 26, 16, 24),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,7 +256,7 @@ class StudioShell extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: m.online
-                                          ? const Color(0xFF639A7E)
+                                          ? statusGreen(context)
                                           : Theme.of(context).colorScheme.error,
                                     ),
                                   ),
@@ -359,7 +375,10 @@ class StudioShell extends StatelessWidget {
                         Expanded(
                           child: AnimatedSwitcher(
                             duration: Duration(
-                              milliseconds: m.reduceMotion ? 0 : 260,
+                              milliseconds:
+                                  MediaQuery.of(context).disableAnimations
+                                  ? 0
+                                  : 260,
                             ),
                             child: KeyedSubtree(
                               key: ValueKey(m.destination),
@@ -367,7 +386,7 @@ class StudioShell extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (m.master != null) const Transport(),
+                        if (m.master != null || m.previewing) const Transport(),
                       ],
                     ),
                   ),
@@ -377,17 +396,29 @@ class StudioShell extends StatelessWidget {
           ),
           bottomNavigationBar: wide
               ? null
-              : NavigationBar(
-                  selectedIndex: m.destination,
-                  onDestinationSelected: (i) {
-                    m.destination = i;
-                    m.changed();
-                  },
-                  destinations: List.generate(
-                    5,
-                    (i) => NavigationDestination(
-                      icon: Icon(icons[i]),
-                      label: names[i],
+              : SafeArea(
+                  top: false,
+                  minimum: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                  child: Panel(
+                    glass: true,
+                    padding: EdgeInsets.zero,
+                    child: NavigationBar(
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      height: 76,
+                      indicatorColor: violet.withValues(alpha: .17),
+                      selectedIndex: m.destination,
+                      onDestinationSelected: (i) {
+                        m.destination = i;
+                        m.changed();
+                      },
+                      destinations: List.generate(
+                        5,
+                        (i) => NavigationDestination(
+                          icon: Icon(icons[i]),
+                          label: names[i],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -398,7 +429,9 @@ class StudioShell extends StatelessWidget {
 }
 
 TextStyle muted(BuildContext context) => TextStyle(
-  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .58),
+  color: Theme.of(context).colorScheme.onSurface.withValues(
+    alpha: MediaQuery.of(context).highContrast ? .9 : .72,
+  ),
   fontSize: 13,
   height: 1.5,
 );
@@ -420,15 +453,24 @@ class Panel extends StatelessWidget {
   Widget build(BuildContext context) {
     final m = context.watch<StudioModel>();
     final theme = Theme.of(context);
-    Widget result = Container(
+    if (glass) {
+      return LiquidGlass(
+        padding: padding,
+        reduceTransparency: m.reduceTransparency,
+        reduceMotion: m.reduceMotion,
+        highContrast: m.highContrast,
+        child: Material(type: MaterialType.transparency, child: child),
+      );
+    }
+    return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(
-          alpha: glass && !m.reduceTransparency ? .78 : .92,
-        ),
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: .1),
+          color: theme.colorScheme.outline.withValues(
+            alpha: MediaQuery.of(context).highContrast ? .7 : .14,
+          ),
         ),
         boxShadow: [
           BoxShadow(
@@ -442,16 +484,6 @@ class Panel extends StatelessWidget {
       ),
       child: Material(type: MaterialType.transparency, child: child),
     );
-    if (glass && !m.reduceTransparency) {
-      result = ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: result,
-        ),
-      );
-    }
-    return result;
   }
 }
 
@@ -540,49 +572,73 @@ class NavItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Material(
-    color: selected ? violet.withValues(alpha: .1) : Colors.transparent,
-    borderRadius: BorderRadius.circular(15),
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(15),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 21,
-              color: selected
-                  ? violet
-                  : Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: .5),
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? violet : null,
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    child: AnimatedContainer(
+      duration: Duration(
+        milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 150,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        gradient: selected
+            ? LinearGradient(
+                colors: [
+                  violet.withValues(alpha: .18),
+                  violet.withValues(alpha: .07),
+                ],
+              )
+            : null,
+        border: Border.all(
+          color: selected ? violet.withValues(alpha: .25) : Colors.transparent,
+        ),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(15),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(15),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 21,
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: .72),
                 ),
-              ),
-            ),
-            if (selected) ...[
-              Container(
-                width: 5,
-                height: 5,
-                decoration: const BoxDecoration(
-                  color: violet,
-                  shape: BoxShape.circle,
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                      color: selected
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ],
+                if (selected) ...[
+                  Container(
+                    width: 5,
+                    height: 5,
+                    decoration: const BoxDecoration(
+                      color: violet,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     ),
@@ -702,10 +758,7 @@ class StudioPage extends StatelessWidget {
                   ),
                   Text(
                     '● ${m.liveStatus}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF639A7E),
-                    ),
+                    style: TextStyle(fontSize: 12, color: statusGreen(context)),
                   ),
                   TextButton.icon(
                     onPressed: !m.busy && (m.canUndo || m.dirty)
@@ -810,7 +863,9 @@ class WelcomePage extends StatelessWidget {
                         children: [
                           Text(
                             'YOUR SOUND, CONSIDERED.',
-                            style: label(context).copyWith(color: violet),
+                            style: label(context).copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                           ),
                           const SizedBox(height: 24),
                           Text(
@@ -1386,7 +1441,6 @@ class MasterPanel extends StatelessWidget {
         .toList();
     final duration = m.duration;
     return Panel(
-      glass: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1434,7 +1488,7 @@ class MasterPanel extends StatelessWidget {
                       final box = context.findRenderObject() as RenderBox;
                       final ratio = (d.localPosition.dx / (box.size.width - 48))
                           .clamp(0.0, 1.0);
-                      m.seek(
+                      m.seekMaster(
                         Duration(
                           milliseconds: (ratio * duration * 1000).round(),
                         ),
@@ -1448,7 +1502,10 @@ class MasterPanel extends StatelessWidget {
                           painter: WavePainter(
                             List<num>.from(m.metrics['waveform'] ?? []),
                             duration > 0
-                                ? m.position.inMilliseconds / (duration * 1000)
+                                ? (m.previewing
+                                          ? 0
+                                          : m.position.inMilliseconds) /
+                                      (duration * 1000)
                                 : 0,
                             Theme.of(
                               context,
@@ -1473,15 +1530,17 @@ class MasterPanel extends StatelessWidget {
                     FilledButton.icon(
                       onPressed: m.togglePlay,
                       icon: Icon(
-                        m.playing
+                        m.playing && !m.previewing
                             ? Icons.pause_rounded
                             : Icons.play_arrow_rounded,
                       ),
-                      label: Text(m.playing ? 'Pause' : 'Play master'),
+                      label: Text(
+                        m.playing && !m.previewing ? 'Pause' : 'Play master',
+                      ),
                     ),
                     const Spacer(),
                     Text(
-                      '${clock(m.position.inSeconds)} / ${clock(duration.round())}',
+                      '${clock(m.previewing ? 0 : m.position.inSeconds)} / ${clock(duration.round())}',
                       style: muted(context),
                     ),
                   ],
@@ -1614,10 +1673,9 @@ class MasterPanel extends StatelessWidget {
   List<num> frame(StudioModel m) {
     final frames = m.metrics['spectrum_frames'] as List? ?? [];
     if (frames.isEmpty) return [];
-    final index = (m.position.inMilliseconds / 150).floor().clamp(
-      0,
-      frames.length - 1,
-    );
+    final index = ((m.previewing ? 0 : m.position.inMilliseconds) / 150)
+        .floor()
+        .clamp(0, frames.length - 1);
     return List<num>.from(frames[index]);
   }
 }
@@ -2154,22 +2212,17 @@ class DiscoverPage extends StatelessWidget {
                               child: Image.network(
                                 m.url(p['cover']['url']),
                                 fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => const Icon(
+                                  Icons.album_outlined,
+                                  color: violet,
+                                  size: 36,
+                                ),
                               ),
                             )
-                          : IconButton(
-                              tooltip: 'Play ${p['title']}',
-                              onPressed: () => m.guard(() async {
-                                await m.closeStems();
-                                await m.player.setUrl(
-                                  m.url(p['master']['url']),
-                                );
-                                m.player.play();
-                              }),
-                              icon: const Icon(
-                                Icons.play_circle_outline,
-                                color: violet,
-                                size: 36,
-                              ),
+                          : const Icon(
+                              Icons.album_outlined,
+                              color: violet,
+                              size: 36,
                             ),
                     ),
                     const SizedBox(width: 18),
@@ -2193,6 +2246,17 @@ class DiscoverPage extends StatelessWidget {
                           Wrap(
                             spacing: 8,
                             children: [
+                              TextButton.icon(
+                                onPressed: () => m.playPreview(
+                                  p['master']['url'],
+                                  '${p['title']} · showcase',
+                                ),
+                                icon: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text('Play track'),
+                              ),
                               TextButton.icon(
                                 onPressed: m.authenticated
                                     ? () => m.guard(() async {
@@ -2447,6 +2511,15 @@ class SettingsPage extends StatelessWidget {
                     value: m.reduceTransparency,
                     onChanged: (v) => m.settings(transparency: v),
                   ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Increase contrast'),
+                    subtitle: const Text(
+                      'Sharper text and solid glass for easier reading.',
+                    ),
+                    value: m.highContrast,
+                    onChanged: (v) => m.settings(contrast: v),
+                  ),
                 ],
               ),
             ),
@@ -2475,12 +2548,18 @@ class SettingsPage extends StatelessWidget {
                           Expanded(child: Text(item.title)),
                           Text(
                             m.capabilities[item.key] == true
-                                ? 'Available'
+                                ? [
+                                        'sarvam',
+                                        'xtts',
+                                        'lyric_ai',
+                                      ].contains(item.key)
+                                      ? 'Configured'
+                                      : 'Available'
                                 : 'Not configured',
                             style: TextStyle(
                               fontSize: 12,
                               color: m.capabilities[item.key] == true
-                                  ? const Color(0xFF639A7E)
+                                  ? statusGreen(context)
                                   : Theme.of(context).colorScheme.onSurface
                                         .withValues(alpha: .5),
                             ),
@@ -2491,7 +2570,7 @@ class SettingsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Speech engines generate spoken vocals. Imported beats use approximate spectral separation. Advanced MusicGen, RVC, vocoder, MIDI and Ableton experiments are outside the production workspace.',
+                    'Configured engines still need a working provider or installed model. Speech engines generate spoken vocals. Imported beats use approximate spectral separation or an installed Demucs engine. Advanced MusicGen, RVC, vocoder, MIDI and Ableton experiments are outside the production workspace.',
                     style: muted(context),
                   ),
                 ],
@@ -2573,8 +2652,10 @@ class Transport extends StatelessWidget {
         child: Row(
           children: [
             IconButton(
-              tooltip: 'Play or pause master',
-              onPressed: m.togglePlay,
+              tooltip: m.previewing
+                  ? 'Play or pause preview'
+                  : 'Play or pause master',
+              onPressed: m.toggleTransport,
               icon: Icon(
                 m.playing
                     ? Icons.pause_circle_filled
@@ -2590,7 +2671,7 @@ class Transport extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    m.title,
+                    m.transportTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -2599,7 +2680,11 @@ class Transport extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    m.stemMode ? 'Instrument balance' : 'Master playback',
+                    m.previewing
+                        ? 'Preview playback'
+                        : m.stemMode
+                        ? 'Instrument balance'
+                        : 'Master playback',
                     style: muted(context).copyWith(fontSize: 10),
                   ),
                 ],
@@ -2611,9 +2696,9 @@ class Transport extends StatelessWidget {
                 child: Slider(
                   value: m.position.inMilliseconds.toDouble().clamp(
                     0,
-                    m.duration * 1000,
+                    m.transportDuration * 1000,
                   ),
-                  max: math.max(1.0, m.duration * 1000),
+                  max: math.max(1.0, m.transportDuration * 1000),
                   onChanged: (v) => m.seek(Duration(milliseconds: v.round())),
                   semanticFormatterCallback: (v) =>
                       '${(v / 1000).round()} seconds',
@@ -2745,22 +2830,25 @@ class _EditorState extends State<Editor> {
   }
 
   @override
-  Widget build(BuildContext context) => TextField(
-    controller: controller,
-    focusNode: focus,
-    style: widget.style,
-    maxLines: widget.maxLines,
-    onChanged: widget.onChanged,
-    decoration: widget.borderless
-        ? InputDecoration(
-            hintText: widget.label,
-            filled: false,
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            contentPadding: EdgeInsets.zero,
-          )
-        : InputDecoration(hintText: widget.label, alignLabelWithHint: true),
+  Widget build(BuildContext context) => Semantics(
+    label: widget.label,
+    child: TextField(
+      controller: controller,
+      focusNode: focus,
+      style: widget.style,
+      maxLines: widget.maxLines,
+      onChanged: widget.onChanged,
+      decoration: widget.borderless
+          ? InputDecoration(
+              hintText: widget.label,
+              filled: false,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+            )
+          : InputDecoration(labelText: widget.label, alignLabelWithHint: true),
+    ),
   );
 }
 
@@ -2769,24 +2857,67 @@ Future<void> sheet(BuildContext context, Widget child) =>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
+      showDragHandle: false,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: .3),
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
-          24,
-          8,
-          24,
-          24 + MediaQuery.viewInsetsOf(ctx).bottom,
+          12,
+          12,
+          12,
+          12 + MediaQuery.viewInsetsOf(ctx).bottom,
         ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: 680,
-            maxHeight: MediaQuery.sizeOf(ctx).height * .78,
+            maxWidth: 728,
+            maxHeight: math.max(
+              120,
+              MediaQuery.sizeOf(ctx).height * .88 -
+                  MediaQuery.viewInsetsOf(ctx).bottom,
+            ),
           ),
-          child: SingleChildScrollView(child: child),
+          child: LiquidGlass(
+            radius: 28,
+            reduceMotion: ctx.watch<StudioModel>().reduceMotion,
+            reduceTransparency: ctx.watch<StudioModel>().reduceTransparency,
+            highContrast: ctx.watch<StudioModel>().highContrast,
+            child: Material(
+              type: MaterialType.transparency,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const SizedBox(width: 48),
+                        Expanded(
+                          child: Center(
+                            child: Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  ctx,
+                                ).colorScheme.onSurface.withValues(alpha: .35),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Close sheet',
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                        ),
+                      ],
+                    ),
+                    child,
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -2936,11 +3067,15 @@ class RecordingForm extends StatefulWidget {
 
 class _RecordingFormState extends State<RecordingForm> {
   final recorder = AudioRecorder();
-  bool recording = false, consent = false;
+  bool recording = false, consent = false, processing = false;
   final chunks = <int>[];
+  StreamSubscription<Uint8List>? pcmSubscription;
+  Completer<void>? pcmDone;
   String message = '';
+  static const maxPcmBytes = 44100 * 2 * 180;
   @override
   void dispose() {
+    pcmSubscription?.cancel();
     recorder.dispose();
     super.dispose();
   }
@@ -2959,20 +3094,22 @@ class _RecordingFormState extends State<RecordingForm> {
           contentPadding: EdgeInsets.zero,
           title: const Text('This is my voice, or I have permission.'),
           value: consent,
-          onChanged: recording
+          onChanged: recording || processing
               ? null
               : (v) => setState(() => consent = v ?? false),
         ),
         const SizedBox(height: 16),
         FilledButton.icon(
-          onPressed: !consent
+          onPressed: !consent || processing
               ? null
               : () async {
+                  setState(() => processing = true);
                   try {
                     if (!recording) {
                       if (!await recorder.hasPermission()) {
                         throw Exception('Microphone permission is needed.');
                       }
+                      if (!mounted) return;
                       chunks.clear();
                       final stream = await recorder.startStream(
                         const RecordConfig(
@@ -2981,11 +3118,60 @@ class _RecordingFormState extends State<RecordingForm> {
                           numChannels: 1,
                         ),
                       );
-                      stream.listen(chunks.addAll);
-                      setState(() => recording = true);
+                      if (!mounted) {
+                        await recorder.stop();
+                        return;
+                      }
+                      pcmDone = Completer<void>();
+                      pcmSubscription = stream.listen(
+                        (bytes) {
+                          final remaining = maxPcmBytes - chunks.length;
+                          if (remaining <= 0) return;
+                          chunks.addAll(bytes.take(remaining));
+                          if (chunks.length == maxPcmBytes && mounted) {
+                            setState(
+                              () => message =
+                                  'Three-minute limit reached. Stop and save your take.',
+                            );
+                            recorder.pause().catchError((_) {});
+                          }
+                        },
+                        onError: (Object error) {
+                          if (mounted)
+                            setState(
+                              () => message =
+                                  'Microphone input stopped. Save your captured take or try again.',
+                            );
+                          if (pcmDone?.isCompleted == false)
+                            pcmDone!.complete();
+                        },
+                        onDone: () {
+                          if (pcmDone?.isCompleted == false)
+                            pcmDone!.complete();
+                        },
+                      );
+                      setState(() {
+                        recording = true;
+                        message = '';
+                      });
                     } else {
                       await recorder.stop();
-                      setState(() => recording = false);
+                      if (mounted) setState(() => recording = false);
+                      try {
+                        await pcmDone?.future.timeout(
+                          const Duration(seconds: 3),
+                        );
+                      } on TimeoutException {
+                        // The input is stopped. Retain the bounded PCM already received.
+                      }
+                      await pcmSubscription?.cancel();
+                      pcmSubscription = null;
+                      if (!mounted) return;
+                      if (chunks.isEmpty) {
+                        throw Exception(
+                          'No audio was captured. Check your microphone and try again.',
+                        );
+                      }
                       final bytes = pcmWav(Uint8List.fromList(chunks));
                       await m.guard(() async {
                         final a = await m.uploadBytes(
@@ -3002,16 +3188,26 @@ class _RecordingFormState extends State<RecordingForm> {
                       }
                     }
                   } catch (e) {
-                    setState(() => message = e.toString());
+                    if (mounted) setState(() => message = e.toString());
+                  } finally {
+                    if (mounted) setState(() => processing = false);
                   }
                 },
           icon: Icon(recording ? Icons.stop_rounded : Icons.mic_none_rounded),
-          label: Text(recording ? 'Stop & save recording' : 'Start recording'),
+          label: Text(
+            processing
+                ? 'Preparing your take…'
+                : recording
+                ? 'Stop & save recording'
+                : 'Start recording',
+          ),
         ),
         const SizedBox(height: 12),
         Text(
           recording
-              ? 'Recording from your microphone…'
+              ? message.isEmpty
+                    ? 'Recording from your microphone…'
+                    : message
               : message.isEmpty
               ? 'Recordings are stored privately with this session.'
               : message,
@@ -3162,7 +3358,7 @@ class _CopilotFormState extends State<CopilotForm> {
               '/copilot',
               data: {'prompt': text.text},
             );
-            setState(() => proposal = Json.from(result));
+            if (mounted) setState(() => proposal = Json.from(result));
           }),
           child: const Text('Suggest an adjustment'),
         ),
@@ -3435,8 +3631,10 @@ class _CommentsFormState extends State<CommentsForm> {
                   data: {'text': text.text},
                 ),
               );
-              setState(() => widget.comments.add(c));
-              text.clear();
+              if (mounted) {
+                setState(() => widget.comments.add(c));
+                text.clear();
+              }
             }),
             child: const Text('Add a note'),
           ),
@@ -3455,7 +3653,7 @@ class EditableBeatGrid extends StatelessWidget {
     final meter = (m.current!['beats_per_bar'] ?? 4) as int;
     final bpm = (m.current!['bpm'] as num).toDouble();
     final offset = ((m.current!['beat_offset_ms'] ?? 0) as num).toDouble();
-    final seconds = m.position.inMilliseconds / 1000;
+    final seconds = (m.previewing ? 0 : m.position.inMilliseconds) / 1000;
     final currentBar = math.max(
       0,
       ((seconds - offset / 1000) * bpm / 60 / meter).floor(),
@@ -3498,7 +3696,7 @@ class EditableBeatGrid extends StatelessWidget {
                 ),
                 onPressed: m.master == null
                     ? null
-                    : () => m.seek(
+                    : () => m.seekMaster(
                         Duration(
                           milliseconds:
                               ((offset / 1000 +

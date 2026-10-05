@@ -5,11 +5,12 @@ let chromium;
 try { ({ chromium } = require(process.env.AUREON_PLAYWRIGHT || 'playwright')); }
 catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = require('C:/Users/dell/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright')); }
 (async () => {
- const output = path.resolve(__dirname, '../docs/demo');
- const screenshots = path.resolve(__dirname, '../docs/screenshots');
+ const output = path.resolve(__dirname, '../docs/demo', process.env.AUREON_EVIDENCE_NAME || '.');
+ const screenshots = path.resolve(__dirname, '../docs/screenshots', process.env.AUREON_EVIDENCE_NAME || '.');
+ fs.mkdirSync(output,{recursive:true});
  fs.mkdirSync(screenshots,{recursive:true});
- const browser = await chromium.launch({channel:'chrome', headless:true});
- const context = await browser.newContext({viewport:{width:1440,height:1000}, recordVideo:{dir:output,size:{width:1440,height:1000}}, acceptDownloads:true});
+ const browser = await chromium.launch({channel:'chrome', headless:true, args:['--use-fake-device-for-media-stream']});
+ const context = await browser.newContext({viewport:{width:1440,height:1000}, permissions:['microphone'], recordVideo:{dir:output,size:{width:1440,height:1000}}, acceptDownloads:true});
  const page = await context.newPage();
  const errors=[]; const completed=[];
  page.on('pageerror', error => errors.push(error.message));
@@ -21,6 +22,12 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   await page.evaluate(() => { const note=document.createElement('div'); note.dataset.fixtureLabel='true'; note.textContent='Aureon · guest fixture · live local workspace'; Object.assign(note.style,{position:'fixed',right:'18px',bottom:'16px',zIndex:'999999',background:'#22242cee',color:'#fff',padding:'8px 12px',borderRadius:'12px',font:'12px sans-serif',pointerEvents:'none'});document.body.appendChild(note); });
   await pause(1500);
   await page.screenshot({path:path.join(screenshots,'welcome.png')});
+  const presetPreview = page.getByRole('button',{name:/Preview Afterglow/i}).first();
+  await presetPreview.evaluate(e=>e.click());
+  await page.getByRole('button',{name:'Play or pause preview',exact:true}).waitFor({state:'visible',timeout:30000});
+  await pause(1800);
+  await page.getByRole('button',{name:'Play or pause preview',exact:true}).evaluate(e=>e.click());
+  completed.push('Actual preset preview opened a correctly labeled controllable transport');
   await page.getByRole('button',{name:'Try the studio',exact:true}).evaluate(e=>e.click());
   completed.push('Guest fixture created through UI');
   const play=page.getByRole('button',{name:'Play master',exact:true});
@@ -32,6 +39,11 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   await pause(3000);
   await page.getByRole('button',{name:'Pause',exact:true}).evaluate(e=>e.click());
   completed.push('Real master playback started and paused');
+  const title = page.getByRole('textbox',{name:/Session title/}).first();
+  await title.fill('Aureon audit · original session');
+  await title.press('Tab');
+  await pause(1700);
+  completed.push('Session title edited and autosaved through the editor');
   
   const mute=page.getByRole('checkbox',{name:'M',exact:true}).nth(2);
   if (await mute.count()) {await mute.first().evaluate(e=>e.click());completed.push('Bass stem muted in saved mixer');}
@@ -53,6 +65,10 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   const download=await downloadPromise;
   await download.saveAs(path.join(output,'guest-master.wav'));
   completed.push('Real WAV export downloaded');
+  const stemsDownload=page.waitForEvent('download',{timeout:30000});
+  await page.getByRole('button',{name:'Stem pack',exact:true}).evaluate(e=>e.click());
+  await (await stemsDownload).saveAs(path.join(output,'guest-stems.zip'));
+  completed.push('Actual four-stem ZIP downloaded');
   await pause(1800);
   await page.screenshot({path:path.join(output,'completed-studio.png')});
   await page.screenshot({path:path.join(screenshots,'studio.png')});
@@ -84,12 +100,34 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   if(!media.some(v=>v.time>1 && v.ready>=2 && !v.paused)) throw new Error('Actual visualizer playback did not advance: '+JSON.stringify(media));
   await page.screenshot({path:path.join(screenshots,'video-preview.png')});
   completed.push('Actual rendered MP4 preview decoded and playback advanced');
+  await page.getByRole('button',{name:'Close sheet',exact:true}).evaluate(e=>e.click());
+  await page.getByRole('button',{name:'Studio',exact:true}).evaluate(e=>e.click());
+  await page.getByRole('button',{name:'Share to showcase',exact:true}).evaluate(e=>e.click());
+  await page.getByRole('button',{name:'Discover',exact:true}).evaluate(e=>e.click());
+  const playTrack=page.getByRole('button',{name:'Play track',exact:true}).first();
+  await playTrack.waitFor({state:'visible',timeout:30000});
+  await playTrack.evaluate(e=>e.click());
+  await page.getByRole('button',{name:'Play or pause preview',exact:true}).waitFor({state:'visible',timeout:30000});
+  await pause(1500);
+  await page.getByRole('button',{name:'Play or pause preview',exact:true}).evaluate(e=>e.click());
+  await page.screenshot({path:path.join(screenshots,'covered-showcase.png')});
+  completed.push('Covered publication retained actual playback and a correct preview transport');
+  await page.getByRole('button',{name:'Unpublish',exact:true}).first().evaluate(e=>e.click());
+  completed.push('Owned publication removed through UI');
+  await page.getByRole('button',{name:'Settings',exact:true}).evaluate(e=>e.click());
+  await page.getByLabel('Dark',{exact:true}).evaluate(e=>e.click());
+  await pause(800);
+  await page.screenshot({path:path.join(screenshots,'settings-dark.png')});
+  await page.setViewportSize({width:390,height:1000}); await pause(500);
+  await page.screenshot({path:path.join(screenshots,'settings-phone-dark.png')});
+  completed.push('Dark appearance and floating mobile dock inspected on actual release');
  } finally {
   const video=page.video();
   await context.close();
   await video.saveAs(path.join(output,'guest-workflow.webm'));
   await browser.close();
-  fs.writeFileSync(path.join(output,'guest-workflow-evidence.json'),JSON.stringify({fixture:'Isolated guest workspace using original preset composition',url:'http://localhost:3005',completed,page_errors:errors,video_audio:'Silent browser screen recording; actual exported master is supplied separately.'},null,2));
+  fs.writeFileSync(path.join(output,'guest-workflow-evidence.json'),JSON.stringify({date:new Date().toISOString(),fixture:'Isolated guest workspace using original preset composition',url:process.env.AUREON_PREVIEW || 'http://localhost:3005',completed,page_errors:errors,video_audio:'Silent browser screen recording; actual exported master is supplied separately.'},null,2));
   console.log(JSON.stringify({completed,page_errors:errors}));
+  if (errors.length) process.exitCode=1;
  }
 })().catch(error => {console.error(error.message); process.exitCode=1;});

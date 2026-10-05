@@ -88,8 +88,13 @@ class StudioModel extends ChangeNotifier {
   List<Json> voiceProfiles = [];
   bool comparingPrevious = false, loudnessMatched = true;
   Json? previousMaster;
+  bool previewing = false;
+  String previewTitle = '';
+  double previewDuration = 0;
+  String get transportTitle => previewing ? previewTitle : title;
+  double get transportDuration => previewing ? previewDuration : duration;
   Timer? driftTimer;
-  bool reduceMotion = false, reduceTransparency = false;
+  bool reduceMotion = false, reduceTransparency = false, highContrast = false;
   ThemeMode themeMode = ThemeMode.system;
   String liveStatus = 'Connecting';
   int destination = 0, eventCursor = 0;
@@ -146,9 +151,14 @@ class StudioModel extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
-    themeMode = ThemeMode.values[prefs.getInt('theme') ?? 0];
+    final savedTheme = prefs.getInt('theme') ?? 0;
+    themeMode =
+        ThemeMode.values[savedTheme >= 0 && savedTheme < ThemeMode.values.length
+            ? savedTheme
+            : 0];
     reduceMotion = prefs.getBool('reduceMotion') ?? false;
     reduceTransparency = prefs.getBool('reduceTransparency') ?? false;
+    highContrast = prefs.getBool('highContrast') ?? false;
     if (!kIsWeb) token = await secure.read(key: 'aureon_token') ?? '';
     await refreshPublic();
     if (authenticated) {
@@ -219,6 +229,7 @@ class StudioModel extends ChangeNotifier {
       current = null;
       master = null;
       previousMaster = null;
+      previewing = false;
       projects = [];
       jobs = [];
       assets = [];
@@ -248,6 +259,7 @@ class StudioModel extends ChangeNotifier {
     dirty = false;
     await player.stop();
     await closeStems();
+    previewing = false;
     await secure.delete(key: 'aureon_token');
     channel?.sink.close();
   });
@@ -284,6 +296,7 @@ class StudioModel extends ChangeNotifier {
     await save();
     await player.stop();
     await closeStems();
+    previewing = false;
     current = Json.from(await request('GET', '/projects/${project['id']}'));
     dirty = false;
     final prefs = await SharedPreferences.getInstance();
@@ -490,6 +503,7 @@ class StudioModel extends ChangeNotifier {
       );
     }
     await player.setUrl(url(master!['url']));
+    previewing = false;
     position = Duration.zero;
   }
 
@@ -566,6 +580,15 @@ class StudioModel extends ChangeNotifier {
 
   Future<void> togglePlay() => guard(() async {
     if (master == null) return;
+    if (previewing) {
+      await player.pause();
+      await player.setUrl(
+        url((comparingPrevious ? previousMaster : master)!['url']),
+      );
+      previewing = false;
+      position = Duration.zero;
+      playing = false;
+    }
     if (playing) {
       await player.pause();
       for (final p in stemPlayers.values) {
@@ -584,18 +607,44 @@ class StudioModel extends ChangeNotifier {
       unawaited(player.play());
     }
   });
+  Future<void> toggleTransport() => previewing
+      ? guard(() async {
+          if (playing) {
+            await player.pause();
+          } else {
+            if (position.inMilliseconds >= transportDuration * 1000) {
+              await player.seek(Duration.zero);
+            }
+            unawaited(player.play());
+          }
+        })
+      : togglePlay();
   Future<void> seek(Duration value) async {
     await player.seek(value);
     await Future.wait(stemPlayers.values.map((p) => p.seek(value)));
   }
 
+  Future<void> seekMaster(Duration value) async {
+    if (previewing && master != null) {
+      await player.pause();
+      await player.setUrl(
+        url((comparingPrevious ? previousMaster : master)!['url']),
+      );
+      previewing = false;
+      await player.setVolume(playbackGain);
+    }
+    await seek(value);
+    notifyListeners();
+  }
+
   Future<void> toggleStems(bool enabled) => guard(() async {
     await player.pause();
     await closeStems();
-    if (enabled && comparingPrevious) {
+    if (previewing || (enabled && comparingPrevious)) {
       final time = position;
       comparingPrevious = false;
       await player.setUrl(url(master!['url']));
+      previewing = false;
       await player.seek(time);
     }
     stemMode = enabled;
@@ -649,11 +698,21 @@ class StudioModel extends ChangeNotifier {
     stemMode = false;
   }
 
-  Future<void> preview(Json preset) => guard(() async {
+  Future<void> playPreview(String audioUrl, String name) => guard(() async {
     await closeStems();
-    await player.setUrl(url('/api/v1/presets/${preset['id']}/preview'));
+    await player.pause();
+    final length = await player.setUrl(url(audioUrl));
+    await player.setVolume(1);
+    previewing = true;
+    previewTitle = name;
+    previewDuration = (length?.inMilliseconds ?? 0) / 1000;
+    position = Duration.zero;
     unawaited(player.play());
   });
+  Future<void> preview(Json preset) => playPreview(
+    '/api/v1/presets/${preset['id']}/preview',
+    '${preset['title']} · preset preview',
+  );
   Future<Json?> uploadBytes(
     Uint8List bytes,
     String name, {
@@ -840,6 +899,7 @@ class StudioModel extends ChangeNotifier {
     await closeStems();
     await player.pause();
     comparingPrevious = previous;
+    previewing = false;
     await player.setUrl(url((previous ? previousMaster : master)!['url']));
     await player.seek(time);
     await player.setVolume(playbackGain);
@@ -857,14 +917,17 @@ class StudioModel extends ChangeNotifier {
     ThemeMode? theme,
     bool? motion,
     bool? transparency,
+    bool? contrast,
   }) async {
     themeMode = theme ?? themeMode;
     reduceMotion = motion ?? reduceMotion;
     reduceTransparency = transparency ?? reduceTransparency;
+    highContrast = contrast ?? highContrast;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('theme', themeMode.index);
     await prefs.setBool('reduceMotion', reduceMotion);
     await prefs.setBool('reduceTransparency', reduceTransparency);
+    await prefs.setBool('highContrast', highContrast);
     notifyListeners();
   }
 

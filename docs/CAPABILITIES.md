@@ -2,6 +2,8 @@
 
 The approved **20 product capabilities** are listed below in their original scope. Premium appearance, responsive layouts, accessibility, authentication, private storage, .NET contracts, containers and CI are additional foundations. “Implemented” describes code; verification identifies executed checks. External models/providers and actual devices remain explicit gates.
 
+See [the fresh 5 October audit](FULL-AUDIT-2026-10-05.md) for the final Liquid Glass-inspired material, accessibility/playback/recording/provider repairs and current execution results. The detailed matrix below describes implementation scope, rather than asserting that a historical model or device check passed again.
+
 | # | Approved capability | Working path and evidence | Remaining gate |
 |---|---|---|---|
 | 1 | Project workspaces with autosave/restored sessions | Persistent SQLite/Postgres project documents; Library search/open/duplicate/archive; coordinated autosave, local drafts and snapshots. Core durability/revision and Flutter save regression pass. | Public account recovery/email verification before public operation. |

@@ -2,7 +2,7 @@
 
 A private music workspace built with Flutter, ASP.NET Core 10, and Python DSP. Compose an original instrumental, add your own recording, shape a four-stem mix, compare masters, and export real media from a versioned session.
 
-The interface uses an original A/soundwave identity, pearl and graphite palettes, restrained glass navigation, responsive layouts, and accessible motion/transparency controls. All waveforms, spectrum frames, loudness readings, progress events, and downloads come from actual processing.
+The interface uses an original A/soundwave identity, pearl and graphite palettes, floating Liquid Glass-inspired navigation, transport and sheets, responsive layouts, and persistent motion/transparency/contrast controls. Editing and analysis surfaces remain readable. All waveforms, spectrum frames, loudness readings, progress events, and downloads come from actual processing.
 
 ## Start locally
 
@@ -30,6 +30,8 @@ Copy `.env.example` to `.env`, supply a Postgres password and an internal key, t
 For an existing public hosting account, use the target mapping and environment instructions in [HOSTING.md](docs/HOSTING.md). The frontend hosting configuration is prepared; no public destination is linked or deployed yet.
 
 ## Capabilities and evidence
+
+The [fresh 5 October full audit](docs/FULL-AUDIT-2026-10-05.md) records the latest visual/UX repairs, executed tests, release artifacts, all 20 feature expectations and current external/device gates. Earlier verification remains a historical record.
 
 See [manual testing](docs/MANUAL_TESTING.md), [the release plan](docs/RELEASE_PLAN.md), [the 20-capability matrix](docs/CAPABILITIES.md), [architecture](docs/ARCHITECTURE.md), [verification record](docs/VERIFICATION.md), and [portfolio walkthrough](docs/PORTFOLIO.md). The core is runnable without paid providers. Sarvam speech/transcription requires a key; lyric assistance requires a running Ollama model; XTTS is optional and unverified in this environment. Imported separation offers labeled approximate spectral DSP or an installed Demucs engine; generated presets have original instrument stems. Speech synthesis is explicitly speech, not AI singing.
 
