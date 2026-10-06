@@ -11,10 +11,44 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
  fs.mkdirSync(screenshots,{recursive:true});
  const browser = await chromium.launch({channel:'chrome', headless:true, args:['--use-fake-device-for-media-stream']});
  const context = await browser.newContext({viewport:{width:1440,height:1000}, permissions:['microphone'], recordVideo:{dir:output,size:{width:1440,height:1000}}, acceptDownloads:true});
+ const blockedExternalRequests=[]; const bundledFontResponses=[];
+ await context.route('**/*', async route => {
+  const url=new URL(route.request().url());
+  if (['http:','https:'].includes(url.protocol) && !['localhost','127.0.0.1'].includes(url.hostname)) {
+   blockedExternalRequests.push(url.origin+url.pathname);
+   await route.abort('blockedbyclient');
+  } else await route.continue();
+ });
  const page = await context.newPage();
- const errors=[]; const completed=[]; let frameSample=null;
+ const errors=[]; const completed=[]; const completedJobs=[]; let frameSample=null; let recordingAsset=null;
  page.on('pageerror', error => errors.push(error.message));
+ page.on('response', async response => {
+  if (response.url().endsWith('/Inter.ttf')) bundledFontResponses.push({status:response.status(),path:new URL(response.url()).pathname});
+  if (response.request().method()==='POST' && /\/api\/v1\/assets\?/.test(response.url()) && response.ok()) {
+   const asset=await response.json().catch(()=>null);
+   if (asset?.original_name==='voice-take.wav' || asset?.name==='voice-take.wav') recordingAsset={id:asset.id,media_type:asset.media_type,metrics:asset.metrics};
+  }
+ });
  const pause = ms => page.waitForTimeout(ms);
+ const exportJob = async (kind, button) => {
+  const submitted=page.waitForResponse(response => response.request().method()==='POST' && /\/api\/v1\/projects\/[^/]+\/jobs$/.test(response.url()) && response.status()===202,{timeout:30000});
+  await button.evaluate(e=>e.click());
+  const job=await (await submitted).json();
+  let terminal=null;
+  await page.waitForResponse(async response => {
+   if (!response.url().includes('/api/v1/jobs?') || !response.ok()) return false;
+   const jobs=await response.json().catch(()=>[]);
+   const current=jobs.find(item=>item.id===job.id);
+   if (current && ['done','failed','cancelled'].includes(current.status)) {
+    terminal=current;
+    return true;
+   }
+   return false;
+  },{timeout:120000});
+  if (terminal.status!=='done') throw new Error(kind+' job failed: '+terminal.error);
+  completedJobs.push({id:terminal.id,kind:terminal.job_kind,status:terminal.status,master_asset_id:terminal.master_asset_id});
+  await pause(500);
+ };
  try {
   await page.goto(process.env.AUREON_PREVIEW || 'http://localhost:3005',{waitUntil:'networkidle',timeout:60000});
   await page.locator('flt-semantics-placeholder').evaluate(e => e.click());
@@ -26,6 +60,7 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   await presetPreview.evaluate(e=>e.click());
   await page.getByRole('button',{name:'Play or pause preview',exact:true}).waitFor({state:'visible',timeout:30000});
   await pause(1800);
+  await page.screenshot({path:path.join(screenshots,'preset-preview.png')});
   await page.getByRole('button',{name:'Play or pause preview',exact:true}).evaluate(e=>e.click());
   completed.push('Actual preset preview opened a correctly labeled controllable transport');
   await page.getByRole('button',{name:'Try the studio',exact:true}).evaluate(e=>e.click());
@@ -58,10 +93,12 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   completed.push('Session title edited and autosaved through the editor');
   
   const mute=page.getByRole('checkbox',{name:'M',exact:true}).nth(2);
-  if (await mute.count()) {await mute.first().evaluate(e=>e.click());completed.push('Bass stem muted in saved mixer');}
+  await mute.waitFor({state:'visible',timeout:15000});
+  await mute.evaluate(e=>e.click());
+  completed.push('Bass stem muted in saved mixer');
   const render=page.getByRole('button',{name:'Render mix',exact:true});
-  await render.scrollIntoViewIfNeeded(); await pause(700); await render.evaluate(e=>e.click());
-  await pause(900); await page.getByRole('button',{name:'Studio',exact:true}).evaluate(e=>e.click()); await page.getByLabel('Previous mix',{exact:true}).waitFor({state:'visible',timeout:30000});
+  await render.scrollIntoViewIfNeeded(); await pause(700); await exportJob('remix',render);
+  await page.getByRole('button',{name:'Studio',exact:true}).evaluate(e=>e.click()); await page.getByLabel('Previous mix',{exact:true}).waitFor({state:'visible',timeout:30000});
   completed.push('Real remixed master completed and previous mix available');
   const current=page.getByLabel('Current mix',{exact:true});
   if(await current.count()) await current.evaluate(e=>e.click());
@@ -81,6 +118,15 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   await page.getByRole('button',{name:'Stem pack',exact:true}).evaluate(e=>e.click());
   await (await stemsDownload).saveAs(path.join(output,'guest-stems.zip'));
   completed.push('Actual four-stem ZIP downloaded');
+  await exportJob('mp3',page.getByRole('button',{name:'MP3',exact:true}));
+  await page.getByRole('button',{name:'Save',exact:true}).first().waitFor({state:'visible',timeout:120000});
+  const mp3Download=page.waitForEvent('download',{timeout:30000});
+  await page.getByRole('button',{name:'Save',exact:true}).first().evaluate(e=>e.click());
+  const mp3=await mp3Download;
+  if (!mp3.suggestedFilename().endsWith('.mp3')) throw new Error('MP3 job did not download MP3');
+  await mp3.saveAs(path.join(output,'guest-master.mp3'));
+  completed.push('Real MP3 export completed and downloaded from Activity');
+  await page.getByRole('button',{name:'Studio',exact:true}).evaluate(e=>e.click());
   await pause(1800);
   await page.screenshot({path:path.join(output,'completed-studio.png')});
   await page.screenshot({path:path.join(screenshots,'studio.png')});
@@ -97,7 +143,7 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   await page.getByRole('button',{name:'Render cover',exact:true}).waitFor({state:'hidden',timeout:15000});
   completed.push('Original cover rendered through the real editor');
   const videoExport=page.getByRole('button',{name:'Video',exact:true});
-  await videoExport.scrollIntoViewIfNeeded(); await videoExport.evaluate(e=>e.click());
+  await videoExport.scrollIntoViewIfNeeded(); await exportJob('video',videoExport);
   const previewVideo=page.getByRole('button',{name:'Preview video',exact:true});
   await previewVideo.waitFor({state:'visible',timeout:120000}); await previewVideo.evaluate(e=>e.click());
   const playVideo=page.getByRole('button',{name:'Play video',exact:true});
@@ -113,6 +159,12 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   await page.screenshot({path:path.join(screenshots,'video-preview.png')});
   completed.push('Actual rendered MP4 preview decoded and playback advanced');
   await page.getByRole('button',{name:'Close sheet',exact:true}).evaluate(e=>e.click());
+  const videoDownload=page.waitForEvent('download',{timeout:30000});
+  await page.getByRole('button',{name:'Save',exact:true}).first().evaluate(e=>e.click());
+  const visualizer=await videoDownload;
+  if (!visualizer.suggestedFilename().endsWith('.mp4')) throw new Error('Video job did not download MP4');
+  await visualizer.saveAs(path.join(output,'guest-visualizer.mp4'));
+  completed.push('Real completed video job downloaded from Activity');
   await page.getByRole('button',{name:'Studio',exact:true}).evaluate(e=>e.click());
   await page.getByRole('button',{name:'Share to showcase',exact:true}).evaluate(e=>e.click());
   await page.getByRole('button',{name:'Discover',exact:true}).evaluate(e=>e.click());
@@ -133,27 +185,49 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   const stopRecording=page.getByRole('button',{name:'Stop & save recording',exact:true});
   await stopRecording.waitFor({state:'visible',timeout:15000});
   await pause(2200);
+  await page.screenshot({path:path.join(screenshots,'recording.png')});
   await stopRecording.evaluate(e=>e.click());
-  await page.getByRole('button',{name:'Start recording',exact:true}).waitFor({state:'hidden',timeout:20000});
+  await page.getByRole('button',{name:'Close sheet',exact:true}).waitFor({state:'hidden',timeout:120000});
+  if (!recordingAsset) throw new Error('Recording did not produce a successful uploaded WAV asset');
+  await page.screenshot({path:path.join(screenshots,'recording-saved.png')});
   completed.push('Consented synthetic Chrome microphone fixture finalized a real uploaded WAV take');
   await page.getByRole('button',{name:'Settings',exact:true}).evaluate(e=>e.click());
-  await page.getByLabel('Dark',{exact:true}).evaluate(e=>e.click());
+  await page.getByRole('button',{name:'Light',exact:true}).evaluate(e=>e.click());
+  await pause(500);
+  await page.screenshot({path:path.join(screenshots,'settings-light.png')});
+  await page.getByRole('button',{name:'Dark',exact:true}).evaluate(e=>e.click());
   await pause(800);
   await page.screenshot({path:path.join(screenshots,'settings-dark.png')});
   await page.setViewportSize({width:390,height:1000}); await pause(500);
   await page.screenshot({path:path.join(screenshots,'settings-phone-dark.png')});
-  await page.getByRole('button',{name:'Studio',exact:true}).evaluate(e=>e.click());
+  await page.getByRole('tab',{name:'Studio',exact:true}).evaluate(e=>e.click());
   await pause(600);
   await page.screenshot({path:path.join(screenshots,'studio-phone-dark.png')});
   await page.setViewportSize({width:1440,height:1000}); await pause(600);
   await page.screenshot({path:path.join(screenshots,'studio-dark.png')});
   completed.push('Dark appearance and floating mobile dock inspected on actual release');
+  await page.getByRole('button',{name:'Settings',exact:true}).evaluate(e=>e.click());
+  for (const preference of ['Reduce motion','Reduce transparency','Increase contrast']) {
+   await page.getByRole('switch',{name:new RegExp('^'+preference)}).evaluate(e=>e.click());
+  }
+  await pause(600);
+  await page.screenshot({path:path.join(screenshots,'settings-accessible.png')});
+  await page.reload({waitUntil:'networkidle'});
+  await page.locator('flt-semantics-placeholder').evaluate(e=>e.click());
+  await page.getByRole('button',{name:'Settings',exact:true}).evaluate(e=>e.click());
+  for (const preference of ['Reduce motion','Reduce transparency','Increase contrast']) {
+   const checked=await page.getByRole('switch',{name:new RegExp('^'+preference)}).getAttribute('aria-checked');
+   if (checked!=='true') throw new Error('Preference did not persist after reload: '+preference+'='+checked);
+  }
+  await page.setViewportSize({width:390,height:1000}); await pause(500);
+  await page.screenshot({path:path.join(screenshots,'settings-phone-accessible.png')});
+  completed.push('Contrast, reduced motion and solid surfaces remained enabled after a real browser reload');
  } finally {
   const video=page.video();
   await context.close();
   await video.saveAs(path.join(output,'guest-workflow.webm'));
   await browser.close();
-  fs.writeFileSync(path.join(output,'guest-workflow-evidence.json'),JSON.stringify({date:new Date().toISOString(),fixture:'Isolated guest workspace using original preset composition',url:process.env.AUREON_PREVIEW || 'http://localhost:3005',completed,page_errors:errors,frame_sample:frameSample,video_audio:'Silent browser screen recording; actual exported master is supplied separately.'},null,2));
+  fs.writeFileSync(path.join(output,'guest-workflow-evidence.json'),JSON.stringify({date:new Date().toISOString(),fixture:'Isolated guest workspace using original preset composition',url:process.env.AUREON_PREVIEW || 'http://localhost:3005',completed,completed_jobs:completedJobs,page_errors:errors,frame_sample:frameSample,recording_asset:recordingAsset,font_network:{policy:'All nonlocal HTTP requests blocked throughout the real journey',bundled_font_responses:bundledFontResponses,blocked_external_requests:blockedExternalRequests},video_audio:'Silent browser screen recording; actual exported master and rendered visualizer are supplied separately.'},null,2));
   console.log(JSON.stringify({completed,page_errors:errors}));
   if (errors.length) process.exitCode=1;
  }

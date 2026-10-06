@@ -1,0 +1,185 @@
+{
+  "date": "2026-10-06T06:39:01.738493+00:00",
+  "master_wav": {
+    "format": "WAV",
+    "subtype": "PCM_24",
+    "channels": 2,
+    "sample_rate": 44100,
+    "frames": 962181,
+    "duration_seconds": 21.818163,
+    "peak": 0.743082,
+    "rms": 0.09333
+  },
+  "master_mp3": {
+    "format": "MP3",
+    "subtype": "MPEG_LAYER_III",
+    "channels": 2,
+    "sample_rate": 44100,
+    "frames": 962181,
+    "duration_seconds": 21.818163,
+    "peak": 0.765792,
+    "rms": 0.092811
+  },
+  "visualizer_mp4": {
+    "full_decode": true,
+    "streams": [
+      "Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 720x1280 [SAR 1:1 DAR 9:16], 314 kb/s, 24 fps, 24 tbr, 12288 tbn (default)",
+      "Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 133 kb/s (default)"
+    ],
+    "duration_seconds": 21.82
+  },
+  "screen_recording_mp4": {
+    "full_decode": true,
+    "streams": [
+      "Stream #0:0[0x1](eng): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt470bg/unknown/unknown, progressive), 1440x1000 [SAR 1:1 DAR 36:25], 470 kb/s, 25 fps, 25 tbr, 12800 tbn (default)"
+    ],
+    "duration_seconds": 84.68
+  },
+  "stem_zip": {
+    "drums.wav": {
+      "format": "WAV",
+      "subtype": "PCM_24",
+      "channels": 2,
+      "sample_rate": 44100,
+      "frames": 962181,
+      "duration_seconds": 21.818163,
+      "peak": 0.84894,
+      "rms": 0.072879
+    },
+    "bass.wav": {
+      "format": "WAV",
+      "subtype": "PCM_24",
+      "channels": 2,
+      "sample_rate": 44100,
+      "frames": 962181,
+      "duration_seconds": 21.818163,
+      "peak": 0.443894,
+      "rms": 0.18243
+    },
+    "other.wav": {
+      "format": "WAV",
+      "subtype": "PCM_24",
+      "channels": 2,
+      "sample_rate": 44100,
+      "frames": 962181,
+      "duration_seconds": 21.818163,
+      "peak": 0.263409,
+      "rms": 0.053554
+    },
+    "vocals.wav": {
+      "format": "WAV",
+      "subtype": "PCM_24",
+      "channels": 2,
+      "sample_rate": 44100,
+      "frames": 962181,
+      "duration_seconds": 21.818163,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    "session_metadata": true
+  },
+  "job_receipts_verified": [
+    {
+      "id": "8a1c40c5-4173-43a6-8718-07114ad23821",
+      "kind": "remix",
+      "status": "done",
+      "master_asset_id": "be75773c-8748-4ac8-8441-bb8a491152a8"
+    },
+    {
+      "id": "429bdf2e-e699-4c99-b335-03f4e14a886f",
+      "kind": "mp3",
+      "status": "done",
+      "master_asset_id": "2d7de2f5-2a17-4a03-8a1c-3e1b739f5934"
+    },
+    {
+      "id": "dc529c8d-4fcd-445b-bddd-ec634cfcc8bc",
+      "kind": "video",
+      "status": "done",
+      "master_asset_id": "2c6019ee-fc34-4565-be7a-c507e806bb1d"
+    }
+  ],
+  "remix_validation": {
+    "different_decoded_pcm": true,
+    "maximum_pcm_delta": 0.426164,
+    "downloaded_wav_matches_new_master": true,
+    "bass_mute_persisted": true,
+    "waveform_bins": 256,
+    "spectrum_frames": 146
+  },
+  "synthetic_microphone_wav": {
+    "format": "WAV",
+    "subtype": "PCM_24",
+    "channels": 2,
+    "sample_rate": 44100,
+    "frames": 112640,
+    "duration_seconds": 2.554195,
+    "peak": 0.785333,
+    "rms": 0.109754
+  },
+  "synthetic_microphone_receipt": {
+    "id": "6d41dc5b-220c-495a-8d0a-06af7258adcc",
+    "media_type": "audio/wav",
+    "consented": true,
+    "waveform_bins": 256,
+    "spectrum_frames": 18,
+    "artifact": {
+      "bytes": 675884,
+      "sha256": "a03399f9f2da31b0786efdda537c8e13c119526a47f23c10040d23afb91c1fc6",
+      "modified_utc": "2026-10-06T06:26:43.456061+00:00"
+    }
+  },
+  "artifacts": {
+    "guest-master.mp3": {
+      "bytes": 700542,
+      "sha256": "f686b61df49e19a0538f277fcf4dc71aa99f132bc41933b527df9f22865d2c65",
+      "modified_utc": "2026-10-06T06:26:19.912508+00:00"
+    },
+    "guest-master.wav": {
+      "bytes": 5773130,
+      "sha256": "e73efd31a349f06d1b2139a273e231c8badd46ac3eb03671d1706a46f6069a4b",
+      "modified_utc": "2026-10-06T06:26:09.169072+00:00"
+    },
+    "guest-stems.zip": {
+      "bytes": 7970400,
+      "sha256": "4483bf7dc974753b907d6ac8b8f4b1d6cff90697ac962404f82bffbe3c8c21c9",
+      "modified_utc": "2026-10-06T06:26:16.609694+00:00"
+    },
+    "guest-visualizer.mp4": {
+      "bytes": 1239486,
+      "sha256": "bfd9bdcb9da09e33c612b30ab956a32c4a2fee49b0fc9f327374de440e5de81c",
+      "modified_utc": "2026-10-06T06:26:34.935569+00:00"
+    },
+    "guest-workflow.mp4": {
+      "bytes": 5002628,
+      "sha256": "7b35694a2830d76a69abc211bf83987e9c718dc11758a1d650f74d627a47abe5",
+      "modified_utc": "2026-10-06T06:33:46.334591+00:00"
+    },
+    "guest-workflow.webm": {
+      "bytes": 9228285,
+      "sha256": "40a136bd453573c842ab49a6ae55047d0ffff4ac660b99d7e93f8f8972e6a39d",
+      "modified_utc": "2026-10-06T06:26:52.423448+00:00"
+    }
+  },
+  "build_artifacts": {
+    "web_main": {
+      "bytes": 3207023,
+      "sha256": "125145e05c6a005a536b9b8ef14edad97f2508d7ffde828cf075844b107cb3f1",
+      "modified_utc": "2026-10-06T06:24:11.772908+00:00"
+    },
+    "web_bootstrap": {
+      "bytes": 14126,
+      "sha256": "c76a8f059b363940c4284720030ca34ef04a0d17693020f2e47dc267a606cbd7",
+      "modified_utc": "2026-10-06T06:23:46.581616+00:00"
+    },
+    "inter_font": {
+      "bytes": 876576,
+      "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031",
+      "modified_utc": "2026-10-05T10:42:25.381253+00:00"
+    },
+    "android_debug": {
+      "bytes": 191867654,
+      "sha256": "9329d5c104674e1a7e6de1ac8d06f1131936af1f4cb6b171561cc0504ee0cb0c",
+      "modified_utc": "2026-10-06T06:26:16.231464+00:00"
+    }
+  }
+}

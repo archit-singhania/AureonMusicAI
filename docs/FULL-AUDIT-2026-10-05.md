@@ -1,4 +1,4 @@
-# Aureon: fresh full-product audit — 5 October 2026
+# Aureon: fresh full-product audit — 5–6 October 2026
 
 This audit covers the maintained Flutter studio, ASP.NET Core 10 gateway and Python 3.11 DSP service. It preserves the useful music and database in `data/`; live audit accounts, projects and renders use `.tools/audit-2026-10-05-data`. No paid requests, deployment, commit or push was made.
 
@@ -11,9 +11,12 @@ The direction follows the supplied [Liquid Glass guide](https://liquidglassdesig
 - Light, dark and system appearances remain persistent. Increase contrast is now persistent, with stronger text/rims and solid glass. Reduce transparency removes blur; reduce motion and OS animation preferences remove animated navigation feedback. Selected navigation and connected-status text use legible theme-aware colors.
 - The phone dock and desktop rail float within safe areas. The rail hides its secondary promotional card on shorter displays or enlarged text. Sheets float with a visible Close action and account for the on-screen keyboard. Editor labels remain visible and have semantic names. Navigation selection animates over 150 ms and pages over 260 ms when motion is enabled.
 - Official OFL-licensed Inter is bundled for consistent real typography on web and native builds (876,576 bytes; SHA-256 `29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031`). Custom web initialization uses the packaged CanvasKit engine and exposes accessible startup/reload feedback rather than requiring a CDN engine request.
+- **Offline typography repaired on 6 October:** inherited form labels, saved input/dropdown values and Settings switch titles retained the default font and failed to paint when its external font was unavailable. The complete copied TextTheme now uses bundled Inter. Fresh captures show every starting-point/loudness label and value and all switch titles while every nonlocal HTTP request is blocked. Local Inter loads with HTTP 200; blocked Roboto fallback requests cannot hide these controls.
+- **Phone large-text header repaired:** the compact brand shares bounded space with the account control. The 390 px workspace and sheets pass with 1.6× text scaling and increased contrast.
 - **Covered showcase playback repaired:** cover artwork previously replaced the only Play control. Every published track now retains an explicit Play track action; failed cover loading has a graceful original-icon fallback.
 - **Preview identity repaired:** preset and showcase previews now show their actual title, duration and pause/resume transport, even before a project exists. Project master playback, grid seeking, stems and A/B restore the correct project source rather than controlling an unrelated preview.
 - **Recording repaired:** consent and microphone permission remain mandatory; pending setup disables duplicate clicks, streams are retained/cancelled explicitly, PCM is capped at three minutes, final input is collected before encoding, empty recordings are rejected, and closing a sheet during an asynchronous operation cannot update a disposed widget.
+- **Multipart gateway repaired on 6 October:** MVC form value providers consumed uploads before the generic proxy could forward the body, causing actual microphone saves to return HTTP 422. A scoped resource filter preserves the body before model binding and route binding is explicit. A real consented WAV regression failed before the fix, then passed through the running gateway; the browser microphone save also completed.
 - **Provider errors repaired:** malformed, empty or non-string lyric replies produce an honest HTTP 503 with the saved draft preserved. Local lyric requests have bounded generation tokens and disable reasoning output. Provider settings distinguish Configured from verified working availability.
 - Copilot and public-note requests safely handle closing their sheet before the response arrives. Invalid legacy theme preferences fall back to System.
 
@@ -21,15 +24,25 @@ The direction follows the supplied [Liquid Glass guide](https://liquidglassdesig
 
 | Fresh check | Result |
 |---|---|
-| Python core/provider suite | **19 passed**, Python 3.11; final run 142.07 seconds. Five new invalid lyric-response cases explicitly preserve the original saved lyrics. Existing checks cover ownership, conflicts, persistence, cancellation/retry/recovery, actual changed DSP, true peak, waveform/spectrum, WAV/MP3/ZIP/MP4, profiles, artwork, moderation and neural adapter gating. |
-| Live .NET contract and SignalR | **2 passed**, 10.84 seconds, real gateway on 5000. Authenticated events/outbox, ranged HTTP 206 and membership revocation were exercised. |
-| .NET release build | **0 warnings, 0 errors**, .NET SDK 10.0.401, net10.0. The launcher uses a private internal relay key and readiness/FFmpeg checks. |
+| Python core/provider suite | **19 passed on 5 October**, Python 3.11.17; 142.07 seconds. Five invalid lyric-response cases preserve saved lyrics. Existing checks cover ownership, conflicts, persistence, cancellation/retry/recovery, changed DSP, true peak, waveform/spectrum, WAV/MP3/ZIP/MP4, profiles, artwork, moderation and neural adapter gating. This unchanged suite was not unnecessarily repeated after gateway/font fixes. |
+| Dependency consistency | **62 installed distributions, 0 conflicts**, isolated Python 3.11 environment. |
+| Live .NET contract and SignalR | **3 passed on 6 October**, 13.64 seconds, real gateway on 5000. Consented multipart WAV upload, owned asset listing and actual PCM24 decoding now join authenticated events/outbox, ranged HTTP 206 and membership revocation. **22 backend tests** across the two suites. |
+| .NET release build | **0 warnings, 0 errors**, 31.34 seconds after the multipart fix; .NET SDK 10.0.401, net10.0. Private relay key and readiness/FFmpeg checks. |
 | Local Ollama request | Actual lyric route returned **503** in **2.56 seconds** on its final check; `/api/tags` connection was refused. `docs/demo/local-lyric-audit-2026-10-05.json` records the result without credentials. Live inference is a fresh manual gate; old installed-model evidence is not reused as a present pass. |
-| Flutter final analyzer/tests | Pending final batch; update after execution. |
-| Final web and Android artifacts | Pending final batch; update after execution. |
-| Actual browser and media evidence | Pending final release journey; update after execution. |
+| Flutter final analyzer/tests | **No issues found; 16 tests passed on 6 October**, 4 seconds after the typography fix. Includes 390/1440 px at 1.6× text and contrast, completed phone master, 390/800/840/1440 px editors, covered showcase playback, exact WAV encoding, save coordination, offline drafts and measured A/B. |
+| Final web release | **Passed on 6 October**, 44.3 seconds; Flutter 3.47.3/Dart 3.13.3, gateway `http://localhost:5000`. The nonfatal existing Cupertino icon-font warning remains; Material icons are bundled. |
+| Final Android debug | **BUILD SUCCESSFUL on 6 October**, 1 minute 6 seconds; JDK 21, offline D-drive Gradle cache, 394 tasks (28 executed, 366 up-to-date). Bundled Inter and gateway `http://10.0.2.2:5000`. Upstream Kotlin/AGP/Gradle deprecation warnings remain. Compilation does not imply device execution. |
+| Actual browser and media evidence | **19 real steps, zero page errors on 6 October**, headless Chrome 154.0.8037.95. Preset/master identity, title autosave, bass-mute remix/new job receipt, Library reopen, WAV/MP3/ZIP/MP4 downloads, cover/publish/play/unpublish, finalized synthetic microphone WAV, light/dark desktop/phone and three preferences persisted after reload. Every external HTTP request was blocked. |
 
 Tests create their own temporary databases/media. The one existing Starlette/httpx deprecation warning does not make a failing operation appear successful. No native microphone, Android device, iOS or cloud-provider execution is implied by unit/contract tests.
+
+## Final captures and decoded artifacts
+
+[Watch the actual guest journey](demo/full-audit-2026-10-06/guest-workflow.mp4), [listen to its master](demo/full-audit-2026-10-06/guest-master.wav), or inspect the [desktop](screenshots/full-audit-2026-10-06/studio.png), [phone dark studio](screenshots/full-audit-2026-10-06/studio-phone-dark.png), [recording](screenshots/full-audit-2026-10-06/recording.png), [saved take](screenshots/full-audit-2026-10-06/recording-saved.png), [covered showcase](screenshots/full-audit-2026-10-06/covered-showcase.png) and [readable Settings](screenshots/full-audit-2026-10-06/settings-light.png). The screen recording is silent; exported audio and the portrait visualizer contain the master.
+
+The [browser receipt](demo/full-audit-2026-10-06/guest-workflow-evidence.json) records terminal IDs for submitted remix/MP3/video jobs, upload metrics, frame scheduling and blocked external requests. [Decoded media and SHA-256 metadata](demo/full-audit-2026-10-06/decoded-media-evidence.json) independently verify downloaded audio, all four ZIP stems, full FFmpeg decoding of both MP4s, the actual saved microphone WAV and durable returned job receipts. The downloaded WAV's decoded PCM equals the new bass-muted master, which differs from the original master. The instrumental preset's vocals stem is intentionally silent. Headless frame scheduling is evidence, not a hardware 60-fps guarantee.
+
+Reproduce with `AUREON_EVIDENCE_NAME=full-audit-2026-10-06 node tools/record_demo.cjs` against existing local services (use PowerShell environment syntax on Windows). Run `tools/decode_audit_media.py` with that evidence directory and isolated audit SQLite database to decode exports and refresh hashes. The JSON includes exact size, hash and modification time for final web JavaScript/bootstrap, Inter and APK. Historical 3 October captures remain separate.
 
 ## Feature inventory and manual expectations
 

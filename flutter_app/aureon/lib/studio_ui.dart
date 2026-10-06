@@ -64,7 +64,7 @@ class AureonApp extends StatelessWidget {
           color: scheme.onSurface,
         ),
         labelLarge: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-      ),
+      ).apply(fontFamily: 'Inter'),
       dividerColor: scheme.outline.withValues(alpha: .14),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -293,13 +293,14 @@ class StudioShell extends StatelessWidget {
                           ),
                           child: Row(
                             children: [
-                              if (!wide) const Brand(compact: true),
+                              if (!wide)
+                                const Expanded(child: Brand(compact: true)),
                               if (wide)
                                 Text(
                                   names[m.destination],
                                   style: muted(context),
                                 ),
-                              const Spacer(),
+                              if (wide) const Spacer(),
                               if (m.current != null && wide)
                                 Padding(
                                   padding: const EdgeInsets.only(right: 20),

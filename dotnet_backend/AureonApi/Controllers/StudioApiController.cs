@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Net.Http.Headers;
 
 namespace AureonApi.Controllers;
@@ -10,7 +12,8 @@ public class StudioApiController(IHttpClientFactory factory, ILogger<StudioApiCo
     [Route("api/v1/{**path}")]
     [AcceptVerbs("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")]
     [RequestSizeLimit(52 * 1024 * 1024)]
-    public async Task Proxy(string? path, CancellationToken cancellation)
+    [PreserveProxyBody]
+    public async Task Proxy([FromRoute] string? path, CancellationToken cancellation)
     {
         var client = factory.CreateClient("Audio");
         using var message = new HttpRequestMessage(new HttpMethod(Request.Method), $"/api/v1/{path}{Request.QueryString}");
@@ -41,4 +44,18 @@ public class StudioApiController(IHttpClientFactory factory, ILogger<StudioApiCo
             await Response.WriteAsJsonAsync(new { detail = "The media request timed out. Check Activity before retrying." }, cancellation);
         }
     }
+}
+
+/// <summary>Leave multipart streams intact for the upstream upload endpoint.</summary>
+public sealed class PreserveProxyBodyAttribute : Attribute, IResourceFilter
+{
+    public void OnResourceExecuting(ResourceExecutingContext context)
+    {
+        // MVC's form providers otherwise read Request.Body before Proxy executes.
+        context.ValueProviderFactories.RemoveType<FormValueProviderFactory>();
+        context.ValueProviderFactories.RemoveType<FormFileValueProviderFactory>();
+        context.ValueProviderFactories.RemoveType<JQueryFormValueProviderFactory>();
+    }
+
+    public void OnResourceExecuted(ResourceExecutedContext context) { }
 }

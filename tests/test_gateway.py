@@ -1,6 +1,10 @@
 """Optional black-box contract and SignalR checks against the running .NET gateway."""
 
 import json, os, time
+import io
+import math
+import struct
+import wave
 import httpx
 import pytest
 from websockets.sync.client import connect
@@ -10,6 +14,44 @@ pytestmark = pytest.mark.skipif(
     not URL,
     reason="Start gateway and set AUREON_GATEWAY_URL to run black-box transport checks.",
 )
+
+
+def test_gateway_preserves_consented_multipart_audio_upload():
+    """MVC must leave the multipart body intact for Python's UploadFile binder."""
+    with httpx.Client(base_url=URL, timeout=30) as client:
+        account = client.post(
+            "/api/v1/auth/register",
+            json={"email": f"upload-{time.time_ns()}@example.test",
+                  "password": "long-test-password", "name": "Upload fixture"},
+        ).json()
+        headers = {"Authorization": "Bearer " + account["token"]}
+        project = client.post("/api/v1/projects", headers=headers,
+                              json={"title": "A real multipart take"}).json()
+        source = io.BytesIO()
+        with wave.open(source, "wb") as output:
+            output.setnchannels(1)
+            output.setsampwidth(2)
+            output.setframerate(44100)
+            output.writeframes(b"".join(struct.pack("<h", round(5000 * math.sin(2 * math.pi * 440 * n / 44100)))
+                                        for n in range(4410)))
+        uploaded = client.post(
+            "/api/v1/assets", headers=headers,
+            params={"project_id": project["id"], "consent": "true"},
+            files={"file": ("owned-take.wav", source.getvalue(), "audio/wav")},
+        )
+        assert uploaded.status_code == 201, uploaded.text
+        asset = uploaded.json()
+        assert asset["consented"] is True
+        assert asset["owner_id"] == account["user"]["id"]
+        assert asset["media_type"] == "audio/wav"
+        assert asset["id"] in {item["id"] for item in client.get("/api/v1/assets", headers=headers).json()}
+        assert abs(asset["metrics"]["duration"] - 0.1) < 0.001
+        saved = client.get(asset["url"])
+        assert saved.status_code == 200
+        with wave.open(io.BytesIO(saved.content)) as decoded:
+            assert decoded.getframerate() == 44100
+            assert decoded.getnframes() == 4410
+            assert decoded.getsampwidth() == 3
 
 
 def test_gateway_contract_streaming_and_live_events():

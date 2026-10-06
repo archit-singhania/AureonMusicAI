@@ -31,7 +31,7 @@ For an existing public hosting account, use the target mapping and environment i
 
 ## Capabilities and evidence
 
-The [fresh 5 October full audit](docs/FULL-AUDIT-2026-10-05.md) records the latest visual/UX repairs, executed tests, release artifacts, all 20 feature expectations and current external/device gates. Earlier verification remains a historical record.
+The [fresh 5–6 October full audit](docs/FULL-AUDIT-2026-10-05.md) records the latest visual/UX repairs, executed tests, release artifacts, all 20 feature expectations and current external/device gates. The verification record and fresh evidence are dated explicitly.
 
 See [manual testing](docs/MANUAL_TESTING.md), [the release plan](docs/RELEASE_PLAN.md), [the 20-capability matrix](docs/CAPABILITIES.md), [architecture](docs/ARCHITECTURE.md), [verification record](docs/VERIFICATION.md), and [portfolio walkthrough](docs/PORTFOLIO.md). The core is runnable without paid providers. Sarvam speech/transcription requires a key; lyric assistance requires a running Ollama model; XTTS is optional and unverified in this environment. Imported separation offers labeled approximate spectral DSP or an installed Demucs engine; generated presets have original instrument stems. Speech synthesis is explicitly speech, not AI singing.
 

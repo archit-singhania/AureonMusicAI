@@ -4,7 +4,7 @@ This guide tests the original 20 product capabilities. Responsive premium appear
 
 ## Open or start the local release
 
-Use [the fresh 5 October full audit](FULL-AUDIT-2026-10-05.md) for the latest release checks and artifact hashes. The final UI now has floating Liquid Glass-inspired navigation/transport/sheets, bundled Inter typography and readable solid audio/editing surfaces. In Settings, test Light/Dark/System, Reduce motion, Reduce transparency and Increase contrast: solid fallback must remove the blur while retaining every control. Covered public tracks must retain Play track; preset/showcase previews must display their own transport title and duration; Play master must restore the project's actual master.
+Use [the fresh 5–6 October full audit](FULL-AUDIT-2026-10-05.md) for the latest release checks and artifact hashes. The final UI now has floating Liquid Glass-inspired navigation/transport/sheets, bundled Inter typography and readable solid audio/editing surfaces. In Settings, test Light/Dark/System, Reduce motion, Reduce transparency and Increase contrast: solid fallback must remove the blur while retaining every control. Covered public tracks must retain Play track; preset/showcase previews must display their own transport title and duration; Play master must restore the project's actual master.
 
 The prepared preview is **http://localhost:3005**; its release files are `flutter_app/aureon/build/web`. Gateway: `http://localhost:5000`; Python: `http://127.0.0.1:8103`. Open the existing preview directly when services are running. A second launcher intentionally refuses occupied ports.
 
@@ -92,7 +92,7 @@ Use separate browsers/private contexts with named Owner and Editor accounts and 
 4. Cancel queued/active work and Retry. A fast completed job may beat the click. Automated tests control the worker for reliable cancellation/idempotency and stale-lease coverage. DB is authoritative; Redis is an optional wake-up transport; local worker processes one job at a time, with up to three pending requests per project.
 5. Wait for All changes saved; stop/restart only owned services; sign in and reopen. Expect `data/studio.db`, `data/assets`, project states, snapshots, undo/redo, profiles, jobs and publications retained. Never clear `data/` as a troubleshooting shortcut.
 
-Live transport regression: set `AUREON_GATEWAY_URL=http://localhost:5000`, then `.runtime311\Scripts\python -m pytest tests/test_gateway.py -q`. This exercises real authorized SignalR, byte-range HTTP206 and membership revocation. Core tests use an isolated temporary DB/media directory; they do not reset the preview library.
+Live transport regression: set `AUREON_GATEWAY_URL=http://localhost:5000`, then `.runtime311\Scripts\python -m pytest tests/test_gateway.py -q`. The three live tests exercise real consented multipart WAV upload and decoded ownership receipts, authorized SignalR, byte-range HTTP206 and membership revocation. Core tests use an isolated temporary DB/media directory; they do not reset the preview library.
 
 For this workspace, keep test temporary files on D:
 
