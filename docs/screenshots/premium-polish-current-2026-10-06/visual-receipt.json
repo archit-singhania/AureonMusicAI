@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-06T08:05:29.278Z",
+  "scope": "Current release after theme-aware painter fix; actual isolated guest render, autosave and UI appearance changes; no API fixtures",
+  "captures": [
+    "welcome.png",
+    "studio-light.png",
+    "studio-phone-light.png",
+    "studio-dark.png",
+    "studio-phone-dark.png",
+    "studio-accessible.png",
+    "studio-phone-accessible.png"
+  ],
+  "page_errors": [],
+  "bundled_fonts": [
+    {
+      "path": "/assets/assets/fonts/Manrope-Variable.ttf",
+      "status": 200
+    },
+    {
+      "path": "/assets/assets/fonts/Manrope-Variable.ttf",
+      "status": 200
+    },
+    {
+      "path": "/assets/assets/fonts/Inter.ttf",
+      "status": 200
+    }
+  ],
+  "main_js_sha256": "bb12aa0537574b626bd80e2b5d9683992b53e8283ac63a07a1a5651008f277d3"
+}

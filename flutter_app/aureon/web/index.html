@@ -31,20 +31,24 @@
 
   <title>Aureon · Your sound, considered</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#F2F1ED">
+  <meta name="theme-color" content="#F8F5F0">
   <style>
-    body { margin: 0; background: #F2F1ED; color: #22242C; font-family: system-ui, sans-serif; }
-    #studio-loading { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; gap: 18px; }
+    @font-face { font-family: Manrope; src: url('assets/assets/fonts/Manrope-Variable.ttf') format('truetype'); font-weight: 200 800; font-style: normal; font-display: swap; }
+    body { margin: 0; background: radial-gradient(ellipse at 18% 8%, #EFE8F6, transparent 65%), radial-gradient(ellipse at 90% 95%, #F6E9E0, transparent 60%), #F8F5F0; color: #252331; font-family: Manrope, system-ui, sans-serif; }
+    #studio-loading { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(300px, calc(100% - 100px)); padding: 38px 26px; display: grid; text-align: center; gap: 22px; border: 1px solid #ffffffd9; border-radius: 28px; background: #fefcf8d9; backdrop-filter: blur(16px); box-shadow: 0 16px 60px #221a3c12; }
     #studio-loading svg { margin: auto; width: 64px; height: 64px; }
-    #studio-loading-status { font-size: 14px; }
-    #studio-retry { background: #7862B7; color: white; border: 0; border-radius: 14px; padding: 15px 24px; font: inherit; cursor: pointer; }
+    #studio-loading-status { font-size: 14px; font-weight: 500; letter-spacing: -.2px; }
+    #studio-retry { background: #6850AD; color: white; border: 0; border-radius: 14px; padding: 15px 24px; font: inherit; font-weight: 650; cursor: pointer; }
+    #studio-retry:focus-visible { outline: 3px solid #6850AD; outline-offset: 4px; }
     #studio-retry[hidden] { display: none; }
-    @media (prefers-color-scheme: dark) { body { background: #15171E; color: #FAF9F6; } }
+    @media (prefers-color-scheme: dark) { body { background: radial-gradient(ellipse at 18% 8%, #24223A, transparent 65%), #12151E; color: #F4F0F9; } #studio-loading { background: #1c202ce6; border-color: #ffffff38; box-shadow: 0 20px 70px #00000033; } }
+    @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) { #studio-loading { backdrop-filter: none; background: #FEFCF8; border-color: #4C4657; } }
+    @media (prefers-color-scheme: dark) and (prefers-reduced-transparency: reduce), (prefers-color-scheme: dark) and (prefers-contrast: more) { #studio-loading { background: #1C202C; border-color: #CFCDD7; } }
   </style>
 </head>
 <body>
   <div id="studio-loading" role="status" aria-live="polite">
-    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="20" fill="#7862B7"/><path d="M14 48 32 15 50 48M25 44V36M31 44V30M37 44V26M43 44V34" fill="none" stroke="#FAF9F6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="studio-iris" x2="1" y2="1"><stop stop-color="#9C83DA"/><stop offset=".55" stop-color="#60449C"/><stop offset="1" stop-color="#47316E"/></linearGradient></defs><rect width="64" height="64" rx="20" fill="url(#studio-iris)"/><path d="M14 48 32 15 50 48M25 44V36M31 44V30M37 44V26M43 44V34" fill="none" stroke="#FEFCF8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <div id="studio-loading-status">Preparing your studio…</div>
     <button id="studio-retry" hidden>Reload studio</button>
   </div>

@@ -753,15 +753,38 @@ class StudioModel extends ChangeNotifier {
     }
   }
 
+  /// Binary exports can wait for archive preparation before response headers.
+  /// Keep normal API calls on their short connection budget.
+  Future<Uint8List> fetchExport(String path) async {
+    final options = Options(responseType: ResponseType.bytes)
+        .compose(dio.options, url(path))
+        .copyWith(connectTimeout: const Duration(seconds: 60));
+    try {
+      final response = await dio.fetch<List<int>>(options);
+      final data = response.data;
+      if (data == null || data.isEmpty) {
+        throw Exception('The export is empty. Render it again and retry.');
+      }
+      return Uint8List.fromList(data);
+    } on DioException catch (failure) {
+      if ([
+        DioExceptionType.connectionTimeout,
+        DioExceptionType.receiveTimeout,
+      ].contains(failure.type)) {
+        throw Exception(
+          'Export preparation took too long. Your saved mix is safe; try the download again.',
+        );
+      }
+      throw Exception('The export could not be downloaded. Please try again.');
+    }
+  }
+
   Future<void> download(String path, String filename) => guard(() async {
-    final response = await dio.get(
-      url(path),
-      options: Options(responseType: ResponseType.bytes),
-    );
+    final bytes = await fetchExport(path);
     await FilePicker.platform.saveFile(
       dialogTitle: 'Save from Aureon',
       fileName: filename,
-      bytes: Uint8List.fromList(response.data),
+      bytes: bytes,
     );
   });
   Future<void> loadVersions() async {

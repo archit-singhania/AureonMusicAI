@@ -20,10 +20,11 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   } else await route.continue();
  });
  const page = await context.newPage();
- const errors=[]; const completed=[]; const completedJobs=[]; let frameSample=null; let recordingAsset=null;
+ const errors=[]; const completed=[]; const completedJobs=[]; const downloadResponses=[]; let frameSample=null; let recordingAsset=null; let failure=null;
  page.on('pageerror', error => errors.push(error.message));
  page.on('response', async response => {
-  if (response.url().endsWith('/Inter.ttf')) bundledFontResponses.push({status:response.status(),path:new URL(response.url()).pathname});
+  if (response.url().endsWith('/Manrope-Variable.ttf')) bundledFontResponses.push({status:response.status(),path:new URL(response.url()).pathname});
+  if (/\/stems\.zip(?:\?|$)/.test(response.url())) downloadResponses.push({path:new URL(response.url()).pathname,status:response.status(),content_type:response.headers()['content-type']});
   if (response.request().method()==='POST' && /\/api\/v1\/assets\?/.test(response.url()) && response.ok()) {
    const asset=await response.json().catch(()=>null);
    if (asset?.original_name==='voice-take.wav' || asset?.name==='voice-take.wav') recordingAsset={id:asset.id,media_type:asset.media_type,metrics:asset.metrics};
@@ -109,18 +110,18 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   await page.getByRole('button',{name:'Open',exact:true}).first().evaluate(e=>e.click());
   await play.waitFor({state:'visible',timeout:30000});
   completed.push('Persistent guest session reopened from library');
-  const downloadPromise=page.waitForEvent('download',{timeout:30000});
+  const downloadPromise=page.waitForEvent('download',{timeout:90000});
   await page.getByRole('button',{name:'WAV',exact:true}).evaluate(e=>e.click());
   const download=await downloadPromise;
   await download.saveAs(path.join(output,'guest-master.wav'));
   completed.push('Real WAV export downloaded');
-  const stemsDownload=page.waitForEvent('download',{timeout:30000});
+  const stemsDownload=page.waitForEvent('download',{timeout:90000});
   await page.getByRole('button',{name:'Stem pack',exact:true}).evaluate(e=>e.click());
   await (await stemsDownload).saveAs(path.join(output,'guest-stems.zip'));
   completed.push('Actual four-stem ZIP downloaded');
   await exportJob('mp3',page.getByRole('button',{name:'MP3',exact:true}));
   await page.getByRole('button',{name:'Save',exact:true}).first().waitFor({state:'visible',timeout:120000});
-  const mp3Download=page.waitForEvent('download',{timeout:30000});
+  const mp3Download=page.waitForEvent('download',{timeout:90000});
   await page.getByRole('button',{name:'Save',exact:true}).first().evaluate(e=>e.click());
   const mp3=await mp3Download;
   if (!mp3.suggestedFilename().endsWith('.mp3')) throw new Error('MP3 job did not download MP3');
@@ -159,7 +160,7 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   await page.screenshot({path:path.join(screenshots,'video-preview.png')});
   completed.push('Actual rendered MP4 preview decoded and playback advanced');
   await page.getByRole('button',{name:'Close sheet',exact:true}).evaluate(e=>e.click());
-  const videoDownload=page.waitForEvent('download',{timeout:30000});
+  const videoDownload=page.waitForEvent('download',{timeout:90000});
   await page.getByRole('button',{name:'Save',exact:true}).first().evaluate(e=>e.click());
   const visualizer=await videoDownload;
   if (!visualizer.suggestedFilename().endsWith('.mp4')) throw new Error('Video job did not download MP4');
@@ -222,12 +223,16 @@ catch (error) { if (process.env.AUREON_PLAYWRIGHT) throw error; ({ chromium } = 
   await page.setViewportSize({width:390,height:1000}); await pause(500);
   await page.screenshot({path:path.join(screenshots,'settings-phone-accessible.png')});
   completed.push('Contrast, reduced motion and solid surfaces remained enabled after a real browser reload');
+ } catch (error) {
+  failure={message:error.message};
+  await page.screenshot({path:path.join(screenshots,'failure-state.png')}).catch(()=>{});
+  throw error;
  } finally {
   const video=page.video();
   await context.close();
   await video.saveAs(path.join(output,'guest-workflow.webm'));
   await browser.close();
-  fs.writeFileSync(path.join(output,'guest-workflow-evidence.json'),JSON.stringify({date:new Date().toISOString(),fixture:'Isolated guest workspace using original preset composition',url:process.env.AUREON_PREVIEW || 'http://localhost:3005',completed,completed_jobs:completedJobs,page_errors:errors,frame_sample:frameSample,recording_asset:recordingAsset,font_network:{policy:'All nonlocal HTTP requests blocked throughout the real journey',bundled_font_responses:bundledFontResponses,blocked_external_requests:blockedExternalRequests},video_audio:'Silent browser screen recording; actual exported master and rendered visualizer are supplied separately.'},null,2));
+  fs.writeFileSync(path.join(output,'guest-workflow-evidence.json'),JSON.stringify({date:new Date().toISOString(),fixture:'Isolated guest workspace using original preset composition',url:process.env.AUREON_PREVIEW || 'http://localhost:3005',completed,completed_jobs:completedJobs,page_errors:errors,download_responses:downloadResponses,failure,frame_sample:frameSample,recording_asset:recordingAsset,font_network:{policy:'All nonlocal HTTP requests blocked throughout the real journey',bundled_font_responses:bundledFontResponses,blocked_external_requests:blockedExternalRequests},video_audio:'Silent browser screen recording; actual exported master and rendered visualizer are supplied separately.'},null,2));
   console.log(JSON.stringify({completed,page_errors:errors}));
   if (errors.length) process.exitCode=1;
  }

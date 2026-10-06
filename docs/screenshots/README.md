@@ -1,5 +1,7 @@
 # Curated actual UI captures
 
+The latest [premium palette and Manrope refinement](../PREMIUM-THEME-2026-10-06.md) has **7 current captures** in [premium-polish-current-2026-10-06](premium-polish-current-2026-10-06/): [light desktop](premium-polish-current-2026-10-06/studio-light.png), [dark desktop](premium-polish-current-2026-10-06/studio-dark.png), [light phone](premium-polish-current-2026-10-06/studio-phone-light.png), [dark phone](premium-polish-current-2026-10-06/studio-phone-dark.png), and opaque contrast variants. The actual guest render and autosave use real local services. Manrope and Inter loaded locally with all nonlocal HTTP blocked. These captures include the final theme-aware waveform/spectrum repaint fix and correspond to the final web artifact hash in [visual-receipt.json](premium-polish-current-2026-10-06/visual-receipt.json).
+
 The **16 final captures from 6 October 2026** are in [full-audit-2026-10-06](full-audit-2026-10-06/). They show the release Flutter client against real local Python/.NET services and original guest composition. All external HTTP requests, including fallback fonts, were blocked; bundled Inter loaded locally. Form labels, saved values and switch titles visibly paint after the full text-theme fix.
 
 - [Welcome](full-audit-2026-10-06/welcome.png) and [correct preset preview identity](full-audit-2026-10-06/preset-preview.png).

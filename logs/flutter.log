@@ -1,8 +1,0 @@
-No devices found yet. Checking for wireless devices...
-
-No supported devices connected.
-
-The following devices were found, but are not supported by this project:
-macOS (desktop) • macos  • darwin-arm64   • macOS 26.0.1 25A362 darwin-arm64
-Chrome (web)    • chrome • web-javascript • Google Chrome 148.0.7778.179
-If you would like your app to run on macos or web, consider running `flutter create .` to generate projects for these platforms.

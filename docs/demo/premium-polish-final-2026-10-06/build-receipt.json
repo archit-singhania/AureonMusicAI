@@ -1,0 +1,16 @@
+{
+  "apk": "D:\\remaining-4-git-projs\\AureonMusicAI\\flutter_app\\aureon\\build\\app\\outputs\\apk\\debug\\app-debug.apk",
+  "size": 192455347,
+  "modified": "2026-10-06T13:32:47.314920+05:30",
+  "sha256": "11f37372a2504a5a312374bd59bcebf2e49e02d8f01bbc4cdec6347dc9be5e6d",
+  "has_export_fix": true,
+  "has_emulator_origin": true,
+  "manrope_matches_source": true,
+  "main_js_sha256": "bb12aa0537574b626bd80e2b5d9683992b53e8283ac63a07a1a5651008f277d3",
+  "analyzer": "No issues found",
+  "flutter_tests": 19,
+  "web_build_seconds": 102.2,
+  "android_build_seconds": 30,
+  "android_tasks": 394,
+  "android_tasks_executed": 24
+}

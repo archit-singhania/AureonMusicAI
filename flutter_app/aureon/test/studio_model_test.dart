@@ -44,8 +44,51 @@ class ControlledAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+class ExportAdapter implements HttpClientAdapter {
+  final requests = <RequestOptions>[];
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? stream,
+    Future<void>? cancel,
+  ) async {
+    requests.add(options);
+    if (options.responseType == ResponseType.bytes) {
+      return ResponseBody.fromBytes([80, 75, 3, 4], 200);
+    }
+    return ResponseBody.fromString(
+      '{}',
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('Archive wait is scoped to authenticated binary exports', () async {
+    final model = StudioModel(start: false);
+    final adapter = ExportAdapter();
+    model.dio.httpClientAdapter = adapter;
+    model.token = 'fixture-token';
+    final bytes = await model.fetchExport('/api/v1/jobs/fixture/stems.zip');
+    expect(bytes, [80, 75, 3, 4]);
+    expect(adapter.requests.single.connectTimeout, const Duration(seconds: 60));
+    expect(adapter.requests.single.receiveTimeout, const Duration(seconds: 90));
+    expect(
+      adapter.requests.single.headers['Authorization'],
+      'Bearer fixture-token',
+    );
+    await model.request('GET', '/projects');
+    expect(adapter.requests.last.connectTimeout, const Duration(seconds: 10));
+    expect(model.dio.options.connectTimeout, const Duration(seconds: 10));
+    model.dispose();
+  });
   test(
     'A/B uses selected measured audio and only attenuates the louder master',
     () {

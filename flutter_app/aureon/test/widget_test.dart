@@ -7,6 +7,58 @@ import 'package:aureon/studio_ui.dart';
 import 'package:aureon/liquid_glass.dart';
 
 void main() {
+  test('Audio plots repaint when appearance changes without new audio', () {
+    final samples = <num>[.2, .5, .7];
+    final light = AureonApp.theme(Brightness.light).colorScheme;
+    final dark = AureonApp.theme(Brightness.dark).colorScheme;
+    expect(
+      SpectrumPainter(
+        samples,
+        dark.primary,
+      ).shouldRepaint(SpectrumPainter(samples, light.primary)),
+      isTrue,
+    );
+    expect(
+      WavePainter(
+        samples,
+        .5,
+        light.outline,
+        active: dark.primary,
+      ).shouldRepaint(
+        WavePainter(samples, .5, light.outline, active: light.primary),
+      ),
+      isTrue,
+    );
+  });
+
+  test('Studio palettes retain readable content and action contrast', () {
+    double contrast(Color a, Color b) {
+      final values = [a.computeLuminance(), b.computeLuminance()]..sort();
+      return (values.last + .05) / (values.first + .05);
+    }
+
+    for (final brightness in Brightness.values) {
+      for (final highContrast in [false, true]) {
+        final theme = AureonApp.theme(brightness, highContrast: highContrast);
+        final colors = theme.colorScheme;
+        for (final pair in [
+          [colors.onSurface, colors.surface],
+          [colors.onSurfaceVariant, colors.surface],
+          [colors.onSurfaceVariant, colors.surfaceContainerLow],
+          [colors.onPrimary, colors.primary],
+          [colors.primary, colors.primaryContainer],
+        ]) {
+          expect(
+            contrast(pair.first, pair.last),
+            greaterThanOrEqualTo(4.5),
+            reason: '$brightness, high contrast $highContrast: $pair',
+          );
+        }
+        expect(theme.textTheme.bodyMedium?.fontFamily, 'Manrope');
+      }
+    }
+  });
+
   final previousError = FlutterError.onError;
   FlutterError.onError = (details) {
     FlutterError.dumpErrorToConsole(details);

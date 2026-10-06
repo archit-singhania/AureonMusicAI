@@ -1,5 +1,7 @@
 # Verification record
 
+The later **6 October premium refinement** has a clean analyzer, **19 current Flutter tests**, a **19-step real browser pass**, and **7 final appearance captures**. Its final web/Android builds and hashes are recorded in [PREMIUM-THEME-2026-10-06.md](PREMIUM-THEME-2026-10-06.md). The current app bundles Manrope with Inter symbol fallback. The broad audit below remains the earlier backend/media/platform evidence; its original APK hash and Inter-only captures are historical.
+
 Final local checks ran on Windows on **5–6 October 2026**. The maintained product uses Flutter 3.47.3/Dart 3.13.3, ASP.NET Core 10 and Python 3.11.17. Preview: port 3005; gateway: 5000; Python: 8103. Audit accounts and media use `.tools/audit-2026-10-05-data`; ordinary private `data/` is preserved. The approved 20 capabilities and optional engine limits are in [CAPABILITIES.md](CAPABILITIES.md). Detailed results and the manual feature inventory are in the [full audit](FULL-AUDIT-2026-10-05.md).
 
 | Check | Executed evidence |

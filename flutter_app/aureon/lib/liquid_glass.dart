@@ -9,7 +9,7 @@ class LiquidGlass extends StatefulWidget {
     required this.child,
     this.padding = EdgeInsets.zero,
     this.radius = 24,
-    this.tint = const Color(0xFF7862B7),
+    this.tint = const Color(0xFF6850AD),
     this.reduceTransparency = false,
     this.reduceMotion = false,
     this.highContrast = false,
@@ -40,7 +40,7 @@ class _LiquidGlassState extends State<LiquidGlass> {
     final surface = theme.colorScheme.surface;
     final rim = contrast
         ? theme.colorScheme.onSurface.withValues(alpha: .65)
-        : Colors.white.withValues(alpha: dark ? .26 : .72);
+        : Colors.white.withValues(alpha: dark ? .23 : .86);
     final body = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: shape,
@@ -50,10 +50,21 @@ class _LiquidGlassState extends State<LiquidGlass> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  surface.withValues(alpha: dark ? .86 : .9),
                   Color.alphaBlend(
-                    widget.tint.withValues(alpha: dark ? .12 : .035),
-                    surface.withValues(alpha: dark ? .77 : .81),
+                    theme.colorScheme.primary.withValues(
+                      alpha: dark ? .05 : .025,
+                    ),
+                    surface.withValues(alpha: dark ? .89 : .92),
+                  ),
+                  Color.alphaBlend(
+                    widget.tint.withValues(alpha: dark ? .12 : .045),
+                    surface.withValues(alpha: dark ? .81 : .84),
+                  ),
+                  Color.alphaBlend(
+                    theme.colorScheme.secondary.withValues(
+                      alpha: dark ? .055 : .025,
+                    ),
+                    surface.withValues(alpha: dark ? .84 : .9),
                   ),
                 ],
               ),
@@ -72,7 +83,7 @@ class _LiquidGlassState extends State<LiquidGlass> {
                       center: light,
                       radius: 1.25,
                       colors: [
-                        Colors.white.withValues(alpha: dark ? .10 : .32),
+                        Colors.white.withValues(alpha: dark ? .085 : .36),
                         Colors.white.withValues(alpha: 0),
                       ],
                     ),
@@ -108,9 +119,16 @@ class _LiquidGlassState extends State<LiquidGlass> {
             borderRadius: shape,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: dark ? .18 : .075),
-                blurRadius: 22,
+                color: const Color(
+                  0xFF201433,
+                ).withValues(alpha: dark ? .30 : .075),
+                blurRadius: 28,
                 offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: widget.tint.withValues(alpha: dark ? .025 : .04),
+                blurRadius: 48,
+                offset: const Offset(0, 16),
               ),
             ],
           ),

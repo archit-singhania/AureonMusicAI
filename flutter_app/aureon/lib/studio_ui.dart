@@ -8,9 +8,10 @@ import 'package:video_player/video_player.dart';
 import 'package:record/record.dart';
 import 'studio_model.dart';
 import 'liquid_glass.dart';
+import 'studio_theme.dart';
 
-const violet = Color(0xFF7862B7);
-const peach = Color(0xFFE1AE96);
+const violet = StudioTheme.iris;
+const peach = StudioTheme.coral;
 Color statusGreen(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark
     ? const Color(0xFFA3D9B7)
@@ -18,98 +19,8 @@ Color statusGreen(BuildContext context) =>
 
 class AureonApp extends StatelessWidget {
   const AureonApp({super.key});
-  static ThemeData theme(Brightness brightness, {bool highContrast = false}) {
-    final dark = brightness == Brightness.dark;
-    var scheme = ColorScheme.fromSeed(
-      seedColor: violet,
-      brightness: brightness,
-      surface: dark ? const Color(0xFF22242C) : const Color(0xFFFAF9F6),
-    );
-    if (highContrast) {
-      scheme = scheme.copyWith(
-        onSurface: dark ? Colors.white : const Color(0xFF111117),
-        outline: dark ? const Color(0xFFCFCDD7) : const Color(0xFF4C4657),
-      );
-    }
-    return ThemeData(
-      useMaterial3: true,
-      brightness: brightness,
-      colorScheme: scheme,
-      scaffoldBackgroundColor: dark
-          ? const Color(0xFF15171E)
-          : const Color(0xFFF2F1ED),
-      fontFamily: 'Inter',
-      textTheme: ThemeData(brightness: brightness).textTheme.copyWith(
-        displayLarge: TextStyle(
-          fontSize: 56,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -2.6,
-          color: scheme.onSurface,
-        ),
-        displayMedium: TextStyle(
-          fontSize: 36,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -1.5,
-          color: scheme.onSurface,
-        ),
-        titleLarge: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -.5,
-          color: scheme.onSurface,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          height: 1.5,
-          color: scheme.onSurface,
-        ),
-        labelLarge: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-      ).apply(fontFamily: 'Inter'),
-      dividerColor: scheme.outline.withValues(alpha: .14),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: scheme.surface.withValues(alpha: .75),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 15,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide(color: scheme.outline.withValues(alpha: .2)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide(color: scheme.outline.withValues(alpha: .2)),
-        ),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: violet,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      ),
-      chipTheme: ChipThemeData(
-        side: BorderSide.none,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      sliderTheme: const SliderThemeData(
-        trackHeight: 3,
-        thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
-      ),
-    );
-  }
+  static ThemeData theme(Brightness brightness, {bool highContrast = false}) =>
+      StudioTheme.create(brightness, highContrast: highContrast);
 
   @override
   Widget build(BuildContext context) {
@@ -187,14 +98,14 @@ class StudioShell extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: Theme.of(context).brightness == Brightness.dark
                     ? [
-                        const Color(0xFF20202B),
-                        const Color(0xFF15171E),
-                        const Color(0xFF23232E),
+                        const Color(0xFF24223A),
+                        const Color(0xFF12151E),
+                        const Color(0xFF24212D),
                       ]
                     : [
-                        const Color(0xFFF0EDF4),
-                        const Color(0xFFF4F3EF),
-                        const Color(0xFFF5EEE8),
+                        const Color(0xFFEFE8F6),
+                        const Color(0xFFF8F5F0),
+                        const Color(0xFFF6E9E0),
                       ],
               ),
             ),
@@ -414,7 +325,9 @@ class StudioShell extends StatelessWidget {
                       backgroundColor: Colors.transparent,
                       elevation: 0,
                       height: 76,
-                      indicatorColor: violet.withValues(alpha: .17),
+                      indicatorColor: Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer,
                       selectedIndex: m.destination,
                       onDestinationSelected: (i) {
                         m.destination = i;
@@ -437,15 +350,13 @@ class StudioShell extends StatelessWidget {
 }
 
 TextStyle muted(BuildContext context) => TextStyle(
-  color: Theme.of(context).colorScheme.onSurface.withValues(
-    alpha: MediaQuery.of(context).highContrast ? .9 : .72,
-  ),
+  color: Theme.of(context).colorScheme.onSurfaceVariant,
   fontSize: 13,
   height: 1.5,
 );
 TextStyle label(BuildContext context) => muted(
   context,
-).copyWith(fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.6);
+).copyWith(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.7);
 
 class Panel extends StatelessWidget {
   const Panel({
@@ -473,20 +384,30 @@ class Panel extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.surface,
+            Color.alphaBlend(
+              theme.colorScheme.primary.withValues(alpha: .025),
+              theme.colorScheme.surface,
+            ),
+          ],
+        ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: theme.colorScheme.outline.withValues(
-            alpha: MediaQuery.of(context).highContrast ? .7 : .14,
-          ),
+          color: MediaQuery.of(context).highContrast
+              ? theme.colorScheme.outline
+              : theme.colorScheme.outlineVariant,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(
-              alpha: theme.brightness == Brightness.dark ? .06 : .025,
+            color: const Color(0xFF221A3C).withValues(
+              alpha: theme.brightness == Brightness.dark ? .20 : .045,
             ),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            blurRadius: 24,
+            offset: const Offset(0, 7),
           ),
         ],
       ),
@@ -509,8 +430,23 @@ class Brand extends StatelessWidget {
           width: compact ? 34 : 42,
           height: compact ? 34 : 42,
           decoration: BoxDecoration(
-            color: violet,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF9C83DA), Color(0xFF60449C), Color(0xFF47316E)],
+            ),
             borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: .45),
+              width: .8,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: violet.withValues(alpha: .22),
+                blurRadius: 15,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           padding: const EdgeInsets.all(7),
           child: CustomPaint(painter: MarkPainter(Colors.white)),
@@ -524,8 +460,8 @@ class Brand extends StatelessWidget {
             'aureon',
             style: TextStyle(
               fontSize: compact ? 22 : 27,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -1.2,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1.4,
             ),
           ),
         ),
@@ -591,13 +527,17 @@ class NavItem extends StatelessWidget {
         gradient: selected
             ? LinearGradient(
                 colors: [
-                  violet.withValues(alpha: .18),
-                  violet.withValues(alpha: .07),
+                  Theme.of(context).colorScheme.primaryContainer,
+                  Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer.withValues(alpha: .45),
                 ],
               )
             : null,
         border: Border.all(
-          color: selected ? violet.withValues(alpha: .25) : Colors.transparent,
+          color: selected
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: .22)
+              : Colors.transparent,
         ),
       ),
       child: Material(
@@ -627,7 +567,7 @@ class NavItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       color: selected
                           ? Theme.of(context).colorScheme.primary
                           : null,
@@ -638,8 +578,8 @@ class NavItem extends StatelessWidget {
                   Container(
                     width: 5,
                     height: 5,
-                    decoration: const BoxDecoration(
-                      color: violet,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -952,9 +892,9 @@ class WelcomePage extends StatelessWidget {
                                 center: Alignment(.3, -.5),
                                 radius: 1.1,
                                 colors: [
-                                  Color(0xFFD8C7F0),
-                                  Color(0xFFAD96D0),
-                                  Color(0xFF625680),
+                                  Color(0xFFE9C7BD),
+                                  Color(0xFFAD8ACB),
+                                  Color(0xFF5F447F),
                                 ],
                               ),
                             ),
@@ -1515,9 +1455,8 @@ class MasterPanel extends StatelessWidget {
                                           : m.position.inMilliseconds) /
                                       (duration * 1000)
                                 : 0,
-                            Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: .15),
+                            Theme.of(context).colorScheme.outline,
+                            active: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ),
@@ -1544,7 +1483,10 @@ class MasterPanel extends StatelessWidget {
                   height: 56,
                   width: double.infinity,
                   child: CustomPaint(
-                    painter: SpectrumPainter(frame(m), violet),
+                    painter: SpectrumPainter(
+                      frame(m),
+                      Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1944,7 +1886,7 @@ class ArtworkPanel extends StatelessWidget {
                   : Container(
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFFB7A4CD), Color(0xFF6D5D8D)],
+                          colors: [Color(0xFFB69ACE), Color(0xFF685085)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -2769,10 +2711,11 @@ class Transport extends StatelessWidget {
 String clock(int s) => '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
 
 class WavePainter extends CustomPainter {
-  WavePainter(this.data, this.progress, this.inactive);
+  WavePainter(this.data, this.progress, this.inactive, {this.active = violet});
   final List<num> data;
   final double progress;
   final Color inactive;
+  final Color active;
   @override
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
@@ -2791,14 +2734,17 @@ class WavePainter extends CustomPainter {
           ),
           const Radius.circular(2),
         ),
-        Paint()..color = i / data.length <= progress ? violet : inactive,
+        Paint()..color = i / data.length <= progress ? active : inactive,
       );
     }
   }
 
   @override
   bool shouldRepaint(WavePainter old) =>
-      old.progress != progress || old.data != data || old.inactive != inactive;
+      old.progress != progress ||
+      old.data != data ||
+      old.inactive != inactive ||
+      old.active != active;
 }
 
 class SpectrumPainter extends CustomPainter {
@@ -2818,13 +2764,14 @@ class SpectrumPainter extends CustomPainter {
           Rect.fromLTWH(i * width, size.height - h, width * .55, h),
           const Radius.circular(3),
         ),
-        Paint()..color = color.withValues(alpha: .45),
+        Paint()..color = color.withValues(alpha: .72),
       );
     }
   }
 
   @override
-  bool shouldRepaint(SpectrumPainter old) => old.data != data;
+  bool shouldRepaint(SpectrumPainter old) =>
+      old.data != data || old.color != color;
 }
 
 class Editor extends StatefulWidget {

@@ -27,9 +27,13 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-Variable.ttf
     - family: Inter
       fonts:
         - asset: assets/fonts/Inter.ttf
   assets:
     - assets/brand/aureon-mark.svg
     - assets/fonts/OFL.txt
+    - assets/fonts/Manrope-OFL.txt
