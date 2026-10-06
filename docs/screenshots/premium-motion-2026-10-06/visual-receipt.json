@@ -1,0 +1,94 @@
+{
+  "date": "2026-10-06T12:23:25.037Z",
+  "scope": "Actual release and local original guest render; no API interception or simulated progress",
+  "checks": [
+    "Desktop route entrance, inactive semantics exclusion and retained search verified",
+    "All curated palette controls perform real persisted appearance changes",
+    "Account sheet entrance and keyboard Escape close verified",
+    "Actual guest master completed, played and paused with stable transport",
+    "Tide, light appearance and all comfort options survived an actual reload",
+    "390px phone navigation and opaque high-contrast comfort surfaces captured",
+    "390px phone normal sheet and section motion captured"
+  ],
+  "captures": [
+    "welcome-iris.png",
+    "library-entering.png",
+    "library-keyboard-focus.png",
+    "settings-entering.png",
+    "library-retained-search.png",
+    "settings-copper-light.png",
+    "settings-copper-dark.png",
+    "settings-tide-dark.png",
+    "settings-tide-light.png",
+    "sheet-entering.png",
+    "sheet-open.png",
+    "render-loading.png",
+    "master-complete.png",
+    "playback-feedback.png",
+    "phone-master-normal.png",
+    "consent-entering.png",
+    "consent-open.png",
+    "consent-keyboard-focus.png",
+    "activity-complete.png",
+    "settings-comfort.png",
+    "phone-master-comfort.png",
+    "sheet-comfort.png",
+    "phone-settings-comfort.png",
+    "phone-studio-comfort.png",
+    "phone-library-comfort.png",
+    "phone-sheet-entering.png",
+    "phone-sheet-open.png",
+    "phone-studio-normal.png"
+  ],
+  "actual_job_states": [
+    {
+      "id": "f35e9e2f-108a-482c-9bf4-34c505c23ca5",
+      "kind": "generate",
+      "status": "analyzing",
+      "progress": 10
+    },
+    {
+      "id": "f35e9e2f-108a-482c-9bf4-34c505c23ca5",
+      "kind": "generate",
+      "status": "mixing",
+      "progress": 75
+    },
+    {
+      "id": "f35e9e2f-108a-482c-9bf4-34c505c23ca5",
+      "kind": "generate",
+      "status": "done",
+      "progress": 100
+    }
+  ],
+  "page_errors": [],
+  "bundled_fonts": [
+    {
+      "path": "/assets/assets/fonts/Manrope-Variable.ttf",
+      "status": 200
+    },
+    {
+      "path": "/assets/assets/fonts/Manrope-Variable.ttf",
+      "status": 200
+    },
+    {
+      "path": "/assets/assets/fonts/Inter.ttf",
+      "status": 200
+    },
+    {
+      "path": "/assets/assets/fonts/Manrope-Variable.ttf",
+      "status": 200
+    },
+    {
+      "path": "/assets/assets/fonts/Manrope-Variable.ttf",
+      "status": 200
+    },
+    {
+      "path": "/assets/assets/fonts/Inter.ttf",
+      "status": 200
+    }
+  ],
+  "failure": null,
+  "main_js_sha256": "3937b3b7bedb0e67795e491f38718b1af64cab0e2c266f5d198a906a83abe57e",
+  "motion_review_video": "motion-review.webm",
+  "manual_review": "Inspect paired entering/open frames and video. Headless browser captures do not certify native device frame rate."
+}

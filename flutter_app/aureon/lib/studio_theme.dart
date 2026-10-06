@@ -1,5 +1,30 @@
 import 'package:flutter/material.dart';
 
+enum StudioPalette {
+  iris(
+    'Iris',
+    'Pearl, iris and warm coral',
+    Color(0xFF6850AD),
+    Color(0xFFC5B3FF),
+  ),
+  copper(
+    'Copper',
+    'Pearl, copper and soft sage',
+    Color(0xFF8A4D38),
+    Color(0xFFF1B69D),
+  ),
+  tide(
+    'Tide',
+    'Pearl, sea glass and muted rose',
+    Color(0xFF35665E),
+    Color(0xFFA0D8CA),
+  );
+
+  const StudioPalette(this.label, this.description, this.light, this.dark);
+  final String label, description;
+  final Color light, dark;
+}
+
 /// Quiet tonal content surfaces, with richer colour reserved for interaction.
 abstract final class StudioTheme {
   static const iris = Color(0xFF6850AD);
@@ -7,14 +32,21 @@ abstract final class StudioTheme {
   static const pearl = Color(0xFFF8F5F0);
   static const ink = Color(0xFF12151E);
 
-  static ThemeData create(Brightness brightness, {bool highContrast = false}) {
+  static ThemeData create(
+    Brightness brightness, {
+    bool highContrast = false,
+    StudioPalette palette = StudioPalette.iris,
+  }) {
     final dark = brightness == Brightness.dark;
-    final primary = dark ? const Color(0xFFC5B3FF) : iris;
+    final primary = dark ? palette.dark : palette.light;
     final secondary = dark ? const Color(0xFFF0AD9E) : const Color(0xFF9B4F43);
     final surface = dark ? const Color(0xFF1C202C) : const Color(0xFFFEFCF8);
     final text = dark ? const Color(0xFFF4F0F9) : const Color(0xFF252331);
-    var scheme = ColorScheme.fromSeed(seedColor: iris, brightness: brightness)
-        .copyWith(
+    var scheme =
+        ColorScheme.fromSeed(
+          seedColor: palette.light,
+          brightness: brightness,
+        ).copyWith(
           primary: primary,
           onPrimary: dark ? const Color(0xFF281B4C) : Colors.white,
           primaryContainer: dark
@@ -56,6 +88,24 @@ abstract final class StudioTheme {
               : const Color(0xFFE4DCE7),
           error: dark ? const Color(0xFFFFB4AC) : const Color(0xFFAA342E),
         );
+    if (palette != StudioPalette.iris) {
+      scheme = scheme.copyWith(
+        onPrimary: dark ? const Color(0xFF202620) : Colors.white,
+        primaryContainer: Color.alphaBlend(
+          primary.withValues(alpha: dark ? .16 : .13),
+          surface,
+        ),
+        onPrimaryContainer: dark ? scheme.onSurface : palette.light,
+        secondary: palette == StudioPalette.copper
+            ? (dark ? const Color(0xFFB5CDB0) : const Color(0xFF4C6547))
+            : (dark ? const Color(0xFFE5B7C8) : const Color(0xFF86516A)),
+        secondaryContainer: palette == StudioPalette.copper
+            ? (dark ? const Color(0xFF2B342D) : const Color(0xFFE5EBDD))
+            : (dark ? const Color(0xFF382E3A) : const Color(0xFFF2E2EB)),
+        onSecondary: dark ? const Color(0xFF282128) : Colors.white,
+        onSecondaryContainer: dark ? scheme.onSurface : const Color(0xFF3D3545),
+      );
+    }
     if (highContrast) {
       scheme = scheme.copyWith(
         onSurface: dark ? Colors.white : const Color(0xFF111117),

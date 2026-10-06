@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'studio_theme.dart';
 
 typedef Json = Map<String, dynamic>;
 
@@ -96,6 +97,7 @@ class StudioModel extends ChangeNotifier {
   Timer? driftTimer;
   bool reduceMotion = false, reduceTransparency = false, highContrast = false;
   ThemeMode themeMode = ThemeMode.system;
+  StudioPalette palette = StudioPalette.iris;
   String liveStatus = 'Connecting';
   int destination = 0, eventCursor = 0;
   Timer? refreshTimer, saveTimer, reconnect;
@@ -159,6 +161,10 @@ class StudioModel extends ChangeNotifier {
     reduceMotion = prefs.getBool('reduceMotion') ?? false;
     reduceTransparency = prefs.getBool('reduceTransparency') ?? false;
     highContrast = prefs.getBool('highContrast') ?? false;
+    palette = StudioPalette.values.firstWhere(
+      (value) => value.name == prefs.getString('palette'),
+      orElse: () => StudioPalette.iris,
+    );
     if (!kIsWeb) token = await secure.read(key: 'aureon_token') ?? '';
     await refreshPublic();
     if (authenticated) {
@@ -939,16 +945,19 @@ class StudioModel extends ChangeNotifier {
 
   Future<void> settings({
     ThemeMode? theme,
+    StudioPalette? colors,
     bool? motion,
     bool? transparency,
     bool? contrast,
   }) async {
     themeMode = theme ?? themeMode;
+    palette = colors ?? palette;
     reduceMotion = motion ?? reduceMotion;
     reduceTransparency = transparency ?? reduceTransparency;
     highContrast = contrast ?? highContrast;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('theme', themeMode.index);
+    await prefs.setString('palette', palette.name);
     await prefs.setBool('reduceMotion', reduceMotion);
     await prefs.setBool('reduceTransparency', reduceTransparency);
     await prefs.setBool('highContrast', highContrast);

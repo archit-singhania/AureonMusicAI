@@ -9,6 +9,7 @@ import 'package:record/record.dart';
 import 'studio_model.dart';
 import 'liquid_glass.dart';
 import 'studio_theme.dart';
+import 'studio_motion.dart';
 
 const violet = StudioTheme.iris;
 const peach = StudioTheme.coral;
@@ -19,8 +20,15 @@ Color statusGreen(BuildContext context) =>
 
 class AureonApp extends StatelessWidget {
   const AureonApp({super.key});
-  static ThemeData theme(Brightness brightness, {bool highContrast = false}) =>
-      StudioTheme.create(brightness, highContrast: highContrast);
+  static ThemeData theme(
+    Brightness brightness, {
+    bool highContrast = false,
+    StudioPalette palette = StudioPalette.iris,
+  }) => StudioTheme.create(
+    brightness,
+    highContrast: highContrast,
+    palette: palette,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -28,11 +36,37 @@ class AureonApp extends StatelessWidget {
     return MaterialApp(
       title: 'Aureon · Your sound, considered',
       debugShowCheckedModeBanner: false,
-      theme: theme(Brightness.light, highContrast: model.highContrast),
-      darkTheme: theme(Brightness.dark, highContrast: model.highContrast),
-      highContrastTheme: theme(Brightness.light, highContrast: true),
-      highContrastDarkTheme: theme(Brightness.dark, highContrast: true),
+      theme: theme(
+        Brightness.light,
+        highContrast: model.highContrast,
+        palette: model.palette,
+      ),
+      darkTheme: theme(
+        Brightness.dark,
+        highContrast: model.highContrast,
+        palette: model.palette,
+      ),
+      highContrastTheme: theme(
+        Brightness.light,
+        highContrast: true,
+        palette: model.palette,
+      ),
+      highContrastDarkTheme: theme(
+        Brightness.dark,
+        highContrast: true,
+        palette: model.palette,
+      ),
       themeMode: model.themeMode,
+      themeAnimationDuration:
+          model.reduceMotion ||
+              WidgetsBinding
+                  .instance
+                  .platformDispatcher
+                  .accessibilityFeatures
+                  .disableAnimations
+          ? Duration.zero
+          : StudioMotion.arrival,
+      themeAnimationCurve: StudioMotion.curve,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
           disableAnimations:
@@ -70,13 +104,13 @@ class StudioShell extends StatelessWidget {
     final roomyRail =
         MediaQuery.sizeOf(context).height >= 850 &&
         MediaQuery.textScalerOf(context).scale(14) <= 18;
-    final page = [
-      const StudioPage(),
-      const LibraryPage(),
-      const DiscoverPage(),
-      const ActivityPage(),
-      const SettingsPage(),
-    ][m.destination];
+    const pages = [
+      StudioPage(),
+      LibraryPage(),
+      DiscoverPage(),
+      ActivityPage(),
+      SettingsPage(),
+    ];
     return Shortcuts(
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
@@ -96,17 +130,21 @@ class StudioShell extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: Theme.of(context).brightness == Brightness.dark
-                    ? [
-                        const Color(0xFF24223A),
-                        const Color(0xFF12151E),
-                        const Color(0xFF24212D),
-                      ]
-                    : [
-                        const Color(0xFFEFE8F6),
-                        const Color(0xFFF8F5F0),
-                        const Color(0xFFF6E9E0),
-                      ],
+                colors: [
+                  Color.alphaBlend(
+                    Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: .08),
+                    Theme.of(context).scaffoldBackgroundColor,
+                  ),
+                  Theme.of(context).scaffoldBackgroundColor,
+                  Color.alphaBlend(
+                    Theme.of(
+                      context,
+                    ).colorScheme.secondary.withValues(alpha: .06),
+                    Theme.of(context).scaffoldBackgroundColor,
+                  ),
+                ],
               ),
             ),
             child: SafeArea(
@@ -148,9 +186,11 @@ class StudioShell extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.auto_awesome_outlined,
-                                      color: violet,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                     const SizedBox(height: 12),
                                     const Text(
@@ -290,19 +330,27 @@ class StudioShell extends StatelessWidget {
                               ],
                             ),
                           ),
-                        if (m.busy) const LinearProgressIndicator(minHeight: 2),
+                        SizedBox(
+                          height: 2,
+                          child: m.busy
+                              ? (StudioMotion.quiet(context)
+                                    ? Semantics(
+                                        label: 'Studio working',
+                                        child: ColoredBox(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        ),
+                                      )
+                                    : const LinearProgressIndicator(
+                                        minHeight: 2,
+                                      ))
+                              : const SizedBox.shrink(),
+                        ),
                         Expanded(
-                          child: AnimatedSwitcher(
-                            duration: Duration(
-                              milliseconds:
-                                  MediaQuery.of(context).disableAnimations
-                                  ? 0
-                                  : 260,
-                            ),
-                            child: KeyedSubtree(
-                              key: ValueKey(m.destination),
-                              child: page,
-                            ),
+                          child: StudioSections(
+                            index: m.destination,
+                            children: pages,
                           ),
                         ),
                         if (m.master != null || m.previewing) const Transport(),
@@ -322,6 +370,10 @@ class StudioShell extends StatelessWidget {
                     glass: true,
                     padding: EdgeInsets.zero,
                     child: NavigationBar(
+                      animationDuration: StudioMotion.duration(
+                        context,
+                        StudioMotion.response,
+                      ),
                       backgroundColor: Colors.transparent,
                       elevation: 0,
                       height: 76,
@@ -373,45 +425,50 @@ class Panel extends StatelessWidget {
     final m = context.watch<StudioModel>();
     final theme = Theme.of(context);
     if (glass) {
-      return LiquidGlass(
-        padding: padding,
-        reduceTransparency: m.reduceTransparency,
-        reduceMotion: m.reduceMotion,
-        highContrast: m.highContrast,
-        child: Material(type: MaterialType.transparency, child: child),
+      return StudioEntrance(
+        child: LiquidGlass(
+          tint: theme.colorScheme.primary,
+          padding: padding,
+          reduceTransparency: m.reduceTransparency,
+          reduceMotion: m.reduceMotion,
+          highContrast: m.highContrast,
+          child: Material(type: MaterialType.transparency, child: child),
+        ),
       );
     }
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.surface,
-            Color.alphaBlend(
-              theme.colorScheme.primary.withValues(alpha: .025),
+    return StudioEntrance(
+      child: Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
               theme.colorScheme.surface,
+              Color.alphaBlend(
+                theme.colorScheme.primary.withValues(alpha: .025),
+                theme.colorScheme.surface,
+              ),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: MediaQuery.of(context).highContrast
+                ? theme.colorScheme.outline
+                : theme.colorScheme.outlineVariant,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF221A3C).withValues(
+                alpha: theme.brightness == Brightness.dark ? .20 : .045,
+              ),
+              blurRadius: 24,
+              offset: const Offset(0, 7),
             ),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: MediaQuery.of(context).highContrast
-              ? theme.colorScheme.outline
-              : theme.colorScheme.outlineVariant,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF221A3C).withValues(
-              alpha: theme.brightness == Brightness.dark ? .20 : .045,
-            ),
-            blurRadius: 24,
-            offset: const Offset(0, 7),
-          ),
-        ],
+        child: Material(type: MaterialType.transparency, child: child),
       ),
-      child: Material(type: MaterialType.transparency, child: child),
     );
   }
 }
@@ -430,10 +487,22 @@ class Brand extends StatelessWidget {
           width: compact ? 34 : 42,
           height: compact ? 34 : 42,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF9C83DA), Color(0xFF60449C), Color(0xFF47316E)],
+              colors: [
+                Color.lerp(
+                  Theme.of(context).colorScheme.primary,
+                  Colors.white,
+                  .2,
+                )!,
+                Theme.of(context).colorScheme.primary,
+                Color.lerp(
+                  Theme.of(context).colorScheme.primary,
+                  Colors.black,
+                  .25,
+                )!,
+              ],
             ),
             borderRadius: BorderRadius.circular(13),
             border: Border.all(
@@ -442,7 +511,9 @@ class Brand extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: violet.withValues(alpha: .22),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: .22),
                 blurRadius: 15,
                 offset: const Offset(0, 4),
               ),
@@ -519,9 +590,8 @@ class NavItem extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     selected: selected,
     child: AnimatedContainer(
-      duration: Duration(
-        milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 150,
-      ),
+      duration: StudioMotion.duration(context, StudioMotion.response),
+      curve: StudioMotion.curve,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(15),
         gradient: selected
@@ -996,7 +1066,7 @@ class WelcomePage extends StatelessWidget {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: violet, size: 24),
+        Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -1309,7 +1379,10 @@ class LyricsPanel extends StatelessWidget {
                 onPressed: m.capabilities['lyric_ai'] == true
                     ? () => lyricsSheet(context)
                     : null,
-                icon: const Icon(Icons.auto_awesome_outlined, color: violet),
+                icon: Icon(
+                  Icons.auto_awesome_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
           ),
@@ -1397,22 +1470,27 @@ class MasterPanel extends StatelessWidget {
             subtitle: m.master == null
                 ? 'A little idea, a larger possibility.'
                 : '${duration.toStringAsFixed(1)} seconds · stereo · 44.1 kHz',
-            action: const Icon(Icons.waves_rounded, color: violet),
+            action: Icon(
+              Icons.waves_rounded,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
           if (m.master == null)
             Container(
               height: 160,
               decoration: BoxDecoration(
-                color: violet.withValues(alpha: .05),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: .05),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.graphic_eq_rounded,
-                      color: violet,
+                      color: Theme.of(context).colorScheme.primary,
                       size: 36,
                     ),
                     const SizedBox(height: 12),
@@ -1427,93 +1505,102 @@ class MasterPanel extends StatelessWidget {
               ),
             )
           else
-            Column(
-              children: [
-                Semantics(
-                  label: 'Measured audio waveform. Tap to seek.',
-                  child: GestureDetector(
-                    onTapDown: (d) {
-                      final box = context.findRenderObject() as RenderBox;
-                      final ratio = (d.localPosition.dx / (box.size.width - 48))
-                          .clamp(0.0, 1.0);
-                      m.seekMaster(
-                        Duration(
-                          milliseconds: (ratio * duration * 1000).round(),
-                        ),
-                      );
-                    },
-                    child: SizedBox(
-                      height: 130,
-                      width: double.infinity,
-                      child: RepaintBoundary(
-                        child: CustomPaint(
-                          painter: WavePainter(
-                            List<num>.from(m.metrics['waveform'] ?? []),
-                            duration > 0
-                                ? (m.previewing
-                                          ? 0
-                                          : m.position.inMilliseconds) /
-                                      (duration * 1000)
-                                : 0,
-                            Theme.of(context).colorScheme.outline,
-                            active: Theme.of(context).colorScheme.primary,
+            StudioEntrance(
+              replayKey: m.master?['id'],
+              child: Column(
+                children: [
+                  Semantics(
+                    label: 'Measured audio waveform. Tap to seek.',
+                    child: GestureDetector(
+                      onTapDown: (d) {
+                        final box = context.findRenderObject() as RenderBox;
+                        final ratio =
+                            (d.localPosition.dx / (box.size.width - 48)).clamp(
+                              0.0,
+                              1.0,
+                            );
+                        m.seekMaster(
+                          Duration(
+                            milliseconds: (ratio * duration * 1000).round(),
+                          ),
+                        );
+                      },
+                      child: SizedBox(
+                        height: 130,
+                        width: double.infinity,
+                        child: RepaintBoundary(
+                          child: CustomPaint(
+                            painter: WavePainter(
+                              List<num>.from(m.metrics['waveform'] ?? []),
+                              duration > 0
+                                  ? (m.previewing
+                                            ? 0
+                                            : m.position.inMilliseconds) /
+                                        (duration * 1000)
+                                  : 0,
+                              Theme.of(context).colorScheme.outline,
+                              active: Theme.of(context).colorScheme.primary,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Semantics(
-                  label: 'Seek project master',
-                  child: Slider(
-                    value:
-                        (m.previewing
-                                ? 0.0
-                                : m.position.inMilliseconds.toDouble())
-                            .clamp(0, duration * 1000),
-                    max: math.max(1.0, duration * 1000),
-                    onChanged: (value) =>
-                        m.seekMaster(Duration(milliseconds: value.round())),
-                    semanticFormatterCallback: (value) =>
-                        '${(value / 1000).round()} seconds of ${duration.round()}',
-                  ),
-                ),
-                SizedBox(
-                  height: 56,
-                  width: double.infinity,
-                  child: CustomPaint(
-                    painter: SpectrumPainter(
-                      frame(m),
-                      Theme.of(context).colorScheme.primary,
+                  const SizedBox(height: 14),
+                  Semantics(
+                    label: 'Seek project master',
+                    child: Slider(
+                      value:
+                          (m.previewing
+                                  ? 0.0
+                                  : m.position.inMilliseconds.toDouble())
+                              .clamp(0, duration * 1000),
+                      max: math.max(1.0, duration * 1000),
+                      onChanged: (value) =>
+                          m.seekMaster(Duration(milliseconds: value.round())),
+                      semanticFormatterCallback: (value) =>
+                          '${(value / 1000).round()} seconds of ${duration.round()}',
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  alignment: WrapAlignment.spaceBetween,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: m.togglePlay,
-                      icon: Icon(
-                        m.playing && !m.previewing
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                      ),
-                      label: Text(
-                        m.playing && !m.previewing ? 'Pause' : 'Play master',
+                  SizedBox(
+                    height: 56,
+                    width: double.infinity,
+                    child: CustomPaint(
+                      painter: SpectrumPainter(
+                        frame(m),
+                        Theme.of(context).colorScheme.primary,
                       ),
                     ),
-                    Text(
-                      '${clock(m.previewing ? 0 : m.position.inSeconds)} / ${clock(duration.round())}',
-                      style: muted(context),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 12,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    alignment: WrapAlignment.spaceBetween,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: m.togglePlay,
+                        icon: StudioIconFeedback(
+                          value: m.playing && !m.previewing,
+                          child: Icon(
+                            m.playing && !m.previewing
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                          ),
+                        ),
+                        label: Text(
+                          m.playing && !m.previewing ? 'Pause' : 'Play master',
+                        ),
+                      ),
+                      Text(
+                        '${clock(m.previewing ? 0 : m.position.inSeconds)} / ${clock(duration.round())}',
+                        style: muted(context),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           if (active.isNotEmpty) ...[
             const SizedBox(height: 18),
@@ -1995,6 +2082,7 @@ class _LibraryPageState extends State<LibraryPage> {
               ),
             ...projects.map(
               (p) => Padding(
+                key: ValueKey(p['id']),
                 padding: const EdgeInsets.only(bottom: 14),
                 child: Panel(
                   padding: const EdgeInsets.all(18),
@@ -2004,11 +2092,17 @@ class _LibraryPageState extends State<LibraryPage> {
                         width: 62,
                         height: 62,
                         decoration: BoxDecoration(
-                          color: violet.withValues(alpha: .12),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: .12),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         padding: const EdgeInsets.all(16),
-                        child: CustomPaint(painter: MarkPainter(violet)),
+                        child: CustomPaint(
+                          painter: MarkPainter(
+                            Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 18),
                       Expanded(
@@ -2080,6 +2174,7 @@ class _LibraryPageState extends State<LibraryPage> {
                 )
                 .map(
                   (a) => Padding(
+                    key: ValueKey(a['id']),
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Panel(
                       padding: const EdgeInsets.all(16),
@@ -2089,7 +2184,7 @@ class _LibraryPageState extends State<LibraryPage> {
                             a['media_type'].toString().startsWith('image')
                                 ? Icons.image_outlined
                                 : Icons.audio_file_outlined,
-                            color: violet,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -2173,6 +2268,7 @@ class DiscoverPage extends StatelessWidget {
             ),
           ...m.showcase.map(
             (p) => Padding(
+              key: ValueKey(p['id']),
               padding: const EdgeInsets.only(bottom: 16),
               child: Panel(
                 child: Row(
@@ -2182,7 +2278,9 @@ class DiscoverPage extends StatelessWidget {
                       width: 76,
                       height: 76,
                       decoration: BoxDecoration(
-                        color: violet.withValues(alpha: .14),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: .14),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: p['cover'] != null
@@ -2191,16 +2289,16 @@ class DiscoverPage extends StatelessWidget {
                               child: Image.network(
                                 m.url(p['cover']['url']),
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => const Icon(
+                                errorBuilder: (_, _, _) => Icon(
                                   Icons.album_outlined,
-                                  color: violet,
+                                  color: Theme.of(context).colorScheme.primary,
                                   size: 36,
                                 ),
                               ),
                             )
-                          : const Icon(
+                          : Icon(
                               Icons.album_outlined,
-                              color: violet,
+                              color: Theme.of(context).colorScheme.primary,
                               size: 36,
                             ),
                     ),
@@ -2309,6 +2407,7 @@ class ActivityPage extends StatelessWidget {
             ),
           ...m.jobs.map(
             (j) => Padding(
+              key: ValueKey(j['id']),
               padding: const EdgeInsets.only(bottom: 14),
               child: Panel(
                 padding: const EdgeInsets.all(20),
@@ -2317,15 +2416,18 @@ class ActivityPage extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          j['status'] == 'done'
-                              ? Icons.check_circle_outline
-                              : j['status'] == 'failed'
-                              ? Icons.error_outline
-                              : Icons.graphic_eq_rounded,
-                          color: j['status'] == 'failed'
-                              ? Theme.of(context).colorScheme.error
-                              : violet,
+                        StudioIconFeedback(
+                          value: j['status'],
+                          child: Icon(
+                            j['status'] == 'done'
+                                ? Icons.check_circle_outline
+                                : j['status'] == 'failed'
+                                ? Icons.error_outline
+                                : Icons.graphic_eq_rounded,
+                            color: j['status'] == 'failed'
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -2472,6 +2574,41 @@ class SettingsPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 14),
+                  Text(
+                    'Palette',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: StudioPalette.values
+                        .map(
+                          (palette) => ChoiceChip(
+                            chipAnimationStyle: StudioMotion.chip(context),
+                            label: Text(palette.label),
+                            avatar: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? palette.dark
+                                    : palette.light,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            tooltip: palette.description,
+                            selected: m.palette == palette,
+                            onSelected: (_) => m.settings(colors: palette),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(m.palette.description, style: muted(context)),
+                  const SizedBox(height: 14),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Reduce motion'),
@@ -2601,7 +2738,7 @@ class EmptyState extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 28),
         child: Column(
           children: [
-            Icon(icon, size: 36, color: violet),
+            Icon(icon, size: 36, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 18),
             Text(
               title,
@@ -2635,12 +2772,15 @@ class Transport extends StatelessWidget {
                   ? 'Play or pause preview'
                   : 'Play or pause master',
               onPressed: m.toggleTransport,
-              icon: Icon(
-                m.playing
-                    ? Icons.pause_circle_filled
-                    : Icons.play_circle_filled,
-                color: violet,
-                size: 35,
+              icon: StudioIconFeedback(
+                value: m.playing,
+                child: Icon(
+                  m.playing
+                      ? Icons.pause_circle_filled
+                      : Icons.play_circle_filled,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 35,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -2839,6 +2979,7 @@ class _EditorState extends State<Editor> {
 Future<void> sheet(BuildContext context, Widget child) =>
     showModalBottomSheet<void>(
       context: context,
+      sheetAnimationStyle: StudioMotion.sheet(context),
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: false,
@@ -3016,23 +3157,41 @@ class _AccountFormState extends State<AccountForm> {
 }
 
 Future<void> voiceConsent(BuildContext context) async {
-  final accepted = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Use your own voice.'),
-      content: const Text(
-        'Confirm that this recording is yours, or that you have the speaker’s permission to use it in your production.',
+  final accepted = await Navigator.of(context, rootNavigator: true).push<bool>(
+    RawDialogRoute<bool>(
+      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black.withValues(alpha: .3),
+      transitionDuration: StudioMotion.duration(context, StudioMotion.exit),
+      transitionBuilder: (ctx, animation, secondary, child) {
+        final eased = animation.drive(CurveTween(curve: StudioMotion.curve));
+        return FadeTransition(
+          opacity: eased,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: .97, end: 1).animate(eased),
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (ctx, animation, secondary) => SafeArea(
+        child: AlertDialog(
+          title: const Text('Use your own voice.'),
+          content: const Text(
+            'Confirm that this recording is yours, or that you have the speaker’s permission to use it in your production.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('I have permission'),
+            ),
+          ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('I have permission'),
-        ),
-      ],
     ),
   );
   if (accepted == true && context.mounted) {
@@ -3405,7 +3564,10 @@ Future<void> versionSheet(BuildContext context) async {
         ...m.versions.map(
           (v) => ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.history_rounded, color: violet),
+            leading: Icon(
+              Icons.history_rounded,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             title: Text(v['action']),
             subtitle: Text(
               '${v['author']} · ${DateTime.fromMillisecondsSinceEpoch(((v['created_at'] as num) * 1000).round()).toLocal().toString().substring(0, 16)}',
@@ -3982,7 +4144,11 @@ class _VideoPreviewState extends State<VideoPreview> {
       if (failure.isNotEmpty)
         Text(failure)
       else if (!controller.value.isInitialized)
-        const Center(child: CircularProgressIndicator())
+        Center(
+          child: StudioMotion.quiet(context)
+              ? const Text('Loading video…')
+              : const CircularProgressIndicator(),
+        )
       else ...[
         Center(
           child: SizedBox(
