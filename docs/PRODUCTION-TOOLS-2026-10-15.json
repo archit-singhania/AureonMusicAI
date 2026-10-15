@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-15",
+  "pythonTests": 31,
+  "flutterTests": 33,
+  "flutterAnalyze": "No issues",
+  "webRelease": "passed",
+  "androidDebug": "passed",
+  "browser": {
+    "checkedAtUtc": "2026-10-15T10:38:37.447Z",
+    "compJob": "edc4e1c7-09cd-4539-9513-c9a02df22b5e",
+    "kitJob": "1553853f-f767-41ff-a983-4b83561f7766",
+    "persisted": true,
+    "actualBrowserVideoPlayback": true,
+    "zipDownloaded": true,
+    "pageErrors": []
+  },
+  "files": [
+    {
+      "path": "python_audio_service/take_comping.py",
+      "sha256": "c651db4a15998aab1683d340fb198ded06dcae384cad061a0dcdb995ee64c290"
+    },
+    {
+      "path": "python_audio_service/release_kit.py",
+      "sha256": "7de1d9d4539e4b75926fb69690b7f90554ba2596a1488bddb2934c54711559bd"
+    },
+    {
+      "path": "python_audio_service/studio_api.py",
+      "sha256": "91e423ed91e6b3c5e7a3594b6debe37f745f91e603dac7f0690634f8deecc42a"
+    },
+    {
+      "path": "flutter_app/aureon/lib/production_ui.dart",
+      "sha256": "46e59b80b059939dbd350deb64cbaba2a85d5890c9106af23c2a05b146243c9a"
+    },
+    {
+      "path": "flutter_app/aureon/lib/studio_ui.dart",
+      "sha256": "082dd0319b3ddf85b39d0b649a8ea55f11260d7fb11e7f23576213b3f762a1e5"
+    },
+    {
+      "path": "flutter_app/aureon/lib/studio_model.dart",
+      "sha256": "ac09421f8dda64134658a7d8cf8dedb45dd856c401efd39d62f56320e5522c54"
+    },
+    {
+      "path": "tests/test_production.py",
+      "sha256": "13d8ff3db80c0c54cf0a2609a3274153e4d4189c87515786e7d75ff4e6c0fe79"
+    },
+    {
+      "path": "flutter_app/aureon/test/production_test.dart",
+      "sha256": "e3369eb685caf89b658c03e093d7f117ed48ee09279a6abb0d806a45e87096d0"
+    },
+    {
+      "path": "tools/production_acceptance.cjs",
+      "sha256": "8d81f42bc61f1473ffdb150eca55dba9d4e302c10c9a95598420d683d47bc85b"
+    },
+    {
+      "path": "flutter_app/aureon/build/web/main.dart.js",
+      "sha256": "de05564267541bb31389c20a64bb07a3bffc216d271c52525034d9c96b1ce933"
+    },
+    {
+      "path": "flutter_app/aureon/build/app/outputs/apk/debug/app-debug.apk",
+      "sha256": "c328ec852efb1bebcae60b9ed57c013a39d31b76dadc5b06a23810be1f1b0543"
+    }
+  ],
+  "unverified": [
+    "Physical-device playback",
+    "iOS build",
+    "Complex-script font coverage"
+  ],
+  "downloadedZip": {
+    "sha256": "fddacf882fb44e910551fcf3bab46302a966d0305afd3828a6472e351c58ea7d",
+    "manifestHashes": "all matched",
+    "audioVideoDecoding": "square and portrait passed"
+  }
+}

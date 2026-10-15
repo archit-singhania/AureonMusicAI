@@ -7,8 +7,6 @@ import pytest
 import soundfile as sf
 
 ROOT = Path(__file__).resolve().parents[1]
-os.environ["AUREON_DATA_DIR"] = tempfile.mkdtemp(prefix="aureon-test-")
-os.environ["AUREON_INTERNAL_KEY"] = "test-internal-key"
 sys.path.insert(0, str(ROOT / "python_audio_service"))
 from fastapi.testclient import TestClient
 from studio_api import app
@@ -74,6 +72,51 @@ def wait(client, headers, jid):
             return job
         time.sleep(0.1)
     pytest.fail("DSP worker did not complete within its test timeout.")
+
+def test_arrangement_job_persists_edits_renders_real_audio_and_rejects_foreign_sources(client):
+    h, initial = account(client); other, _ = account(client)
+    pid = initial["project"]["id"]
+    wav = io.BytesIO(); sf.write(wav, np.ones((4410, 2)) * .1, 44100, format="WAV", subtype="FLOAT")
+    uploaded = client.post("/api/v1/assets?project_id=" + pid, headers=h, files={"file": ("tone.wav", wav.getvalue(), "audio/wav")})
+    assert uploaded.status_code == 201, uploaded.text
+    aid = uploaded.json()["id"]
+    state = {**initial["project"], "arrangement": {"tracks": [{"id": "t", "name": "Imported take", "clips": [{"id": "c", "asset_id": aid, "start": 10, "source_start": 0, "length": 4000}], "automation": [{"parameter": "volume", "points": [{"sample": 0, "value": .5}]}]}]}}
+    saved = client.put(f"/api/v1/projects/{pid}", headers=h, json={"revision": initial["project"]["revision"], "state": state})
+    assert saved.status_code == 200, saved.text
+    assert client.get(f"/api/v1/projects/{pid}", headers=h).json()["arrangement"]["tracks"][0]["clips"][0]["start"] == 10
+    forbidden = client.post("/api/v1/projects", headers=other, json=state)
+    assert forbidden.status_code == 404
+    queued = client.post(f"/api/v1/projects/{pid}/jobs", headers=h, json={"kind": "arrangement_render"})
+    assert queued.status_code == 202, queued.text
+    done = wait(client, h, queued.json()["id"])
+    assert done["status"] == "done", done
+    result = client.get("/api/v1/assets/" + done["master_asset_id"], headers=h).json()
+    y, rate = sf.read(io.BytesIO(client.get(result["url"]).content))
+    assert rate == 44100 and y.shape == (4010, 2)
+    assert np.allclose(y[:10], 0) and abs(y[100, 0] - .05) < 1e-5
+    assert client.post(f"/api/v1/projects/{pid}/undo", headers=h, json={"revision": saved.json()["revision"]}).status_code == 200
+    assert client.get(f"/api/v1/projects/{pid}", headers=h).json()["arrangement"] is None
+
+def test_arrangement_migration_preserves_exact_original_samples(client):
+    h, initial = account(client); outsider, _ = account(client)
+    pid = initial["project"]["id"]
+    generation = wait(client, h, initial["job"]["id"])
+    assert generation["status"] == "done"
+    source = client.get('/api/v1/assets/' + generation['master_asset_id'], headers=h).json()
+    original = client.get(source['url']).content
+    audio_data, rate = sf.read(io.BytesIO(original))
+    project = client.get(f'/api/v1/projects/{pid}', headers=h).json()
+    path = f'/api/v1/projects/{pid}/arrangement/init'
+    assert client.post(path, headers=outsider, json={'revision':project['revision']}).status_code == 404
+    migrated = client.post(path, headers=h, json={'revision':project['revision']})
+    assert migrated.status_code == 200, migrated.text
+    clip = migrated.json()['arrangement']['tracks'][0]['clips'][0]
+    assert clip['length'] == len(audio_data) and rate == 44100
+    assert clip['asset_id'] == source['id']
+    assert client.get(source['url']).content == original
+    assert client.get(f"/api/v1/assets/{source['id']}/arrangement-metadata", headers=outsider).status_code == 404
+    assert client.get(f"/api/v1/assets/{source['id']}/arrangement-metadata", headers=h).json()['sample_count'] == len(audio_data)
+    assert client.post(path,headers=h,json={'revision':migrated.json()['revision']}).json()['revision'] == migrated.json()['revision']
 
 
 def test_accounts_ownership_and_version_conflict(client):

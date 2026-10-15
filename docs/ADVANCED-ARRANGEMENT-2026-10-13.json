@@ -1,0 +1,117 @@
+{
+  "artifacts": [
+    {
+      "sha256": "cc02437817fb484e5d287d3462b7ac14618589ff621e8b09a341d019b2c7dbc6",
+      "path": "flutter_app/aureon/build/web/main.dart.js"
+    },
+    {
+      "sha256": "a5e0c7a0e54781f74d67053d8563a6d67c17096f28efb0b1d108e9a31f248d4f",
+      "path": "flutter_app/aureon/build/app/outputs/apk/debug/app-debug.apk"
+    },
+    {
+      "sha256": "6cdf6d52aac9e51ec074c072454f9acbfd34eeac8e5768ffc9e4ab9f2ec95d84",
+      "path": ".tools/gateway-advanced-2026-10-13/AureonApi.dll"
+    },
+    {
+      "sha256": "415879d49d7e94965eee2b425d4e4966bcdf771670dec7a542b5f59b4284f7b1",
+      "path": "docs/screenshots/advanced-arrangement-2026-10-13/rendered-arrangement.wav"
+    }
+  ],
+  "pythonIsolatedTestsPassed": 25,
+  "scope": "Arrangement timeline and volume/pan automation implemented; web acceptance verified, physical/iOS checks pending",
+  "flutterAnalyzer": "No issues found",
+  "flutterRegressionTestsPassed": 29,
+  "checkedAtUtc": "2026-10-13T05:33:18.2521706Z",
+  "gatewayContractTestsPassed": 3,
+  "decodedAudio": {
+    "peak": 0.3320169448852539,
+    "sampleRate": 44100,
+    "channels": 2,
+    "frames": 962181
+  },
+  "pending": [
+    "Reference-track matching",
+    "Performance take comping",
+    "Interactive release kit",
+    "Physical Android and iOS acceptance"
+  ],
+  "flutterEditingTestsRepeated": 4,
+  "limits": [
+    "180-second output at 44100 Hz",
+    "Volume/pan envelopes only",
+    "Preview plays last completed render",
+    "Split requires one repeat and cursor outside fades"
+  ],
+  "browser": {
+    "checkedAtUtc": "2026-10-13T05:32:39.247Z",
+    "scope": "Actual named-account gateway/worker/browser timeline and curve workflow, reload and light/dark/phone captures",
+    "projectId": "b6fbddb1-f748-4389-bfdb-9501316463d6",
+    "jobId": "63ebba6c-098b-40c6-828d-8ea515b06cab",
+    "sampleCount": 962181,
+    "sampleRate": 44100,
+    "pageErrors": [],
+    "persistedArrangement": true,
+    "realAudio": true
+  },
+  "builds": {
+    "androidDebug": "passed",
+    "webRelease": "passed",
+    "dotnetRelease": "passed with zero warnings/errors"
+  },
+  "sourceFiles": [
+    {
+      "sha256": "8ff8c3b7b0bcca5100d3bd8b9a1c17898f5ec990398405f61db7e8047f1c13b0",
+      "path": "python_audio_service/arrangement.py"
+    },
+    {
+      "sha256": "9389ad707db9300bf8c8013980bed8b45bf28f8461ada62206cb504e1c8991e6",
+      "path": "python_audio_service/studio_api.py"
+    },
+    {
+      "sha256": "79d19fb017631642f010c27ff71bd2acc6f750853ee9199b425044018a94354d",
+      "path": "python_audio_service/audio_engine.py"
+    },
+    {
+      "sha256": "ca75d871f1d1d4879220e7cecbebb3eeb6ce16d1703c9b020b944e21c494f9d0",
+      "path": "flutter_app/aureon/lib/arrangement_edits.dart"
+    },
+    {
+      "sha256": "030eee3036314143b459523a22f3ae1fc6907a2920e370f8512d00d5f58fb074",
+      "path": "flutter_app/aureon/lib/arrangement_ui.dart"
+    },
+    {
+      "sha256": "c472e99462d98e7e3d3a13cf53338118e75870de898dac7a5ac4a00ae6a06026",
+      "path": "flutter_app/aureon/lib/studio_model.dart"
+    },
+    {
+      "sha256": "274df0e2600693ab0bc929b42ab149f5ccb2a03b46711d290a89bf7ddc30fdf0",
+      "path": "flutter_app/aureon/lib/studio_ui.dart"
+    },
+    {
+      "sha256": "1782e6e50ae1ac81fd394f3e38d362d232e7049d433064cc4a7c85920baea208",
+      "path": "flutter_app/aureon/test/arrangement_test.dart"
+    },
+    {
+      "sha256": "8c64e8f0ff397f7c18eec59ef4d8a116a4df340cfc0df7668f0abe5a4dd31c3a",
+      "path": "tests/conftest.py"
+    },
+    {
+      "sha256": "c0948fccdd754270d62d3524e57221ecd3dbf99ccebef961cf673bac794522c5",
+      "path": "tests/test_arrangement.py"
+    },
+    {
+      "sha256": "91df2d73394040daca42ba7913517f770df09dd86cb88e4b9fe652b7c91092a7",
+      "path": "tests/test_studio.py"
+    },
+    {
+      "sha256": "5e55faf1c18925dcde5aaa52f76856a610ebf0c19d18aa3e90d4776e0ba98a28",
+      "path": "tools/advanced_arrangement_acceptance.cjs"
+    }
+  ],
+  "testIsolation": {
+    "corrected": true,
+    "uncertainLocalRecords": "preserved",
+    "backup": ".tools/storage-backups/2026-10-13-before-isolation-repair.db",
+    "freshSuite": "temporary database selected before collection"
+  }
+}

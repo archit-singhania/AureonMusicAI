@@ -10,6 +10,9 @@ import 'studio_model.dart';
 import 'liquid_glass.dart';
 import 'studio_theme.dart';
 import 'studio_motion.dart';
+import 'arrangement_ui.dart';
+import 'reference_ui.dart';
+import 'production_ui.dart';
 
 const violet = StudioTheme.iris;
 const peach = StudioTheme.coral;
@@ -795,6 +798,12 @@ class StudioPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 26),
+              const ArrangementPanel(),
+              const SizedBox(height: 20),
+              const ReferencePanel(),
+              const SizedBox(height: 20),
+              const ProductionPanel(),
+              const SizedBox(height: 20),
               if (large)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1692,7 +1701,7 @@ class MasterPanel extends StatelessWidget {
                   child: const Text('MP3'),
                 ),
                 OutlinedButton(
-                  onPressed: m.selectedJob == null
+                  onPressed: m.selectedJob == null || m.stemAssets.isEmpty
                       ? null
                       : () => m.download(
                           '/api/v1/jobs/${m.selectedJob!['id']}/stems.zip',
@@ -1835,13 +1844,16 @@ class MixerPanel extends StatelessWidget {
                 child: Text(
                   m.stemMode
                       ? 'Live balance · render to include effects or gains above 100%'
+                      : m.stemAssets.isEmpty
+                      ? 'This master has no separate stems; use timeline controls or generate a stem-based mix.'
                       : 'Saved mixer settings · render to hear changes',
                   style: muted(context).copyWith(fontSize: 12),
                 ),
               ),
               const SizedBox(width: 10),
               FilledButton(
-                onPressed: m.master == null || m.rendering
+                onPressed:
+                    m.master == null || m.rendering || m.stemAssets.isEmpty
                     ? null
                     : () => m.generate('remix'),
                 child: const Text('Render mix'),

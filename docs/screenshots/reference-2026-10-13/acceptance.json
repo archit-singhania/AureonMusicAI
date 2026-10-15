@@ -1,0 +1,51 @@
+{
+  "checkedAtUtc": "2026-10-13T06:00:01.853Z",
+  "scope": "Real private reference comparison, actual matched A/B playback, confirmed new render, preserved original, persisted settings and responsive theme captures",
+  "comparisonJobId": "f5ece688-fcb1-4051-8be5-d56297db1f66",
+  "renderJobId": "cce66980-c368-48a9-aca7-3eaeedb314fd",
+  "originalAssetId": "67d72551-c7cc-450c-a88c-b6490d74e8b2",
+  "newAssetId": "470b48bf-097d-487f-8227-f83678b379d4",
+  "comparison": {
+    "version": 1,
+    "master": {
+      "integrated_lufs": -13.999999594338611,
+      "crest_db": 12.455,
+      "stereo_width": 0.2271,
+      "bands_percent": {
+        "bass": 82.583,
+        "low_mid": 13.121,
+        "high_mid": 3.05,
+        "air": 1.246
+      },
+      "frames": 962181,
+      "sample_rate": 44100
+    },
+    "reference": {
+      "integrated_lufs": -13.999999594338611,
+      "crest_db": 12.455,
+      "stereo_width": 0.2271,
+      "bands_percent": {
+        "bass": 82.583,
+        "low_mid": 13.121,
+        "high_mid": 3.05,
+        "air": 1.246
+      },
+      "frames": 962181,
+      "sample_rate": 44100
+    },
+    "audition_lufs": -14,
+    "suggestion": {
+      "gain_db": 0,
+      "width": 1
+    },
+    "explanation": "Gain compares integrated LUFS (bounded to ±12 dB); mid/side width ratio is bounded to 0.5–1.5. Band percentages and crest factor are descriptive, not automatic EQ or quality scores. Mono sources cannot gain new stereo detail.",
+    "band_delta_percent": {
+      "bass": 0,
+      "low_mid": 0,
+      "high_mid": 0,
+      "air": 0
+    }
+  },
+  "persisted": true,
+  "pageErrors": []
+}

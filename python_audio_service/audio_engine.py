@@ -337,6 +337,7 @@ def metrics(path):
         )
     return {
         "duration": round(len(y) / sr, 3),
+        "sample_count": len(y),
         "sample_rate": sr,
         "peak_dbfs": round(20 * math.log10(max(peak, 1e-9)), 2),
         "true_peak_dbtp": round(20 * math.log10(max(true_peak, 1e-9)), 2),

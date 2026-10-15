@@ -31,12 +31,16 @@ For an existing public hosting account, use the target mapping and environment i
 
 ## Capabilities and evidence
 
+October 13 advanced additions: the non-destructive arrangement timeline, volume/pan automation and private reference listening room are implemented. See [timeline manual checks](docs/ADVANCED-ARRANGEMENT-2026-10-13.md) and [reference matching manual checks](docs/REFERENCE-MATCHING-2026-10-13.md). Reference comparison measures actual audio, provides loudness-matched A/B and renders confirmed gain/width changes into a new master. Performance take comping and the interactive release kit are also implemented: preserve source takes, select exact sample phrases, render crossfades, review credits/rights and export actual audio/video with a hashed manifest. See [production tools manual](docs/PRODUCTION-TOOLS-2026-10-15.md). October 15 checks: 31 isolated backend tests, 33 Flutter tests, clean analysis, web Release/Android debug builds and real browser export/playback passed. Physical-device/iOS validation remains pending.
+
+The expanded isolated suites passed 28 Python and 31 Flutter tests, plus the actual reference browser workflow and decoded output check. Web Release and Android debug builds passed. This is incremental acceptance for the new additions; physical-device/iOS gates remain open.
+
 The [fresh 5–6 October full audit](docs/FULL-AUDIT-2026-10-05.md) records the latest visual/UX repairs, executed tests, release artifacts, all 20 feature expectations and current external/device gates. The verification record and fresh evidence are dated explicitly.
 
 See [manual testing](docs/MANUAL_TESTING.md), [the release plan](docs/RELEASE_PLAN.md), [the 20-capability matrix](docs/CAPABILITIES.md), [architecture](docs/ARCHITECTURE.md), [verification record](docs/VERIFICATION.md), and [portfolio walkthrough](docs/PORTFOLIO.md). The core is runnable without paid providers. Sarvam speech/transcription requires a key; lyric assistance requires a running Ollama model; XTTS is optional and unverified in this environment. Imported separation offers labeled approximate spectral DSP or an installed Demucs engine; generated presets have original instrument stems. Speech synthesis is explicitly speech, not AI singing.
 
 ```powershell
-.runtime311\Scripts\python -m pytest tests/test_studio.py tests/test_providers.py -q
+.runtime311\Scripts\python -m pytest tests/test_arrangement.py tests/test_reference_audio.py tests/test_studio.py tests/test_providers.py -q
 dotnet build dotnet_backend/AureonApi -c Release
 $env:AUREON_GATEWAY_URL='http://localhost:5000'
 .runtime311\Scripts\python -m pytest tests/test_gateway.py -q

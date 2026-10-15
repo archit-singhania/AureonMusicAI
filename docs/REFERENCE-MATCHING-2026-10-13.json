@@ -1,0 +1,146 @@
+{
+  "browser": {
+    "checkedAtUtc": "2026-10-13T06:00:01.853Z",
+    "scope": "Real private reference comparison, actual matched A/B playback, confirmed new render, preserved original, persisted settings and responsive theme captures",
+    "comparisonJobId": "f5ece688-fcb1-4051-8be5-d56297db1f66",
+    "renderJobId": "cce66980-c368-48a9-aca7-3eaeedb314fd",
+    "originalAssetId": "67d72551-c7cc-450c-a88c-b6490d74e8b2",
+    "newAssetId": "470b48bf-097d-487f-8227-f83678b379d4",
+    "comparison": {
+      "version": 1,
+      "master": {
+        "integrated_lufs": -13.999999594338611,
+        "crest_db": 12.455,
+        "stereo_width": 0.2271,
+        "bands_percent": {
+          "bass": 82.583,
+          "low_mid": 13.121,
+          "high_mid": 3.05,
+          "air": 1.246
+        },
+        "frames": 962181,
+        "sample_rate": 44100
+      },
+      "reference": {
+        "integrated_lufs": -13.999999594338611,
+        "crest_db": 12.455,
+        "stereo_width": 0.2271,
+        "bands_percent": {
+          "bass": 82.583,
+          "low_mid": 13.121,
+          "high_mid": 3.05,
+          "air": 1.246
+        },
+        "frames": 962181,
+        "sample_rate": 44100
+      },
+      "audition_lufs": -14,
+      "suggestion": {
+        "gain_db": 0,
+        "width": 1
+      },
+      "explanation": "Gain compares integrated LUFS (bounded to ±12 dB); mid/side width ratio is bounded to 0.5–1.5. Band percentages and crest factor are descriptive, not automatic EQ or quality scores. Mono sources cannot gain new stereo detail.",
+      "band_delta_percent": {
+        "bass": 0,
+        "low_mid": 0,
+        "high_mid": 0,
+        "air": 0
+      }
+    },
+    "persisted": true,
+    "pageErrors": []
+  },
+  "sourceFiles": [
+    {
+      "path": "python_audio_service/reference_audio.py",
+      "sha256": "16a29ce6ed3df3eeb6e05e4edd5ac5b5764829a81e1b5de096894a74dd204034"
+    },
+    {
+      "path": "python_audio_service/studio_api.py",
+      "sha256": "cd1944765470bd79b46e59b5c8d8a321c2fa3139a75ecb8eac701665d9328b0d"
+    },
+    {
+      "path": "python_audio_service/audio_engine.py",
+      "sha256": "57607919915587efa35bcd3e31ddfe5b543a41d12a6f2d7af2af40f329cb72e9"
+    },
+    {
+      "path": "flutter_app/aureon/lib/reference_ui.dart",
+      "sha256": "a1b16dbae67b3be79df81b2a7cd2455bb17e888aafd15ceca68ec807af033bb1"
+    },
+    {
+      "path": "flutter_app/aureon/lib/studio_model.dart",
+      "sha256": "b5fc6d6b068016cac93c2ee493e88affcb33833c0b3229489b25463d484c3096"
+    },
+    {
+      "path": "flutter_app/aureon/lib/studio_ui.dart",
+      "sha256": "482c5a1369135579cdbeb9515078dac2e576d68f02a808798861e486fc17d487"
+    },
+    {
+      "path": "tests/test_reference_audio.py",
+      "sha256": "9c3b8f4fee107579f0b431b5608b737c18740557cac6af4b436c2dea3bf84439"
+    },
+    {
+      "path": "flutter_app/aureon/test/reference_test.dart",
+      "sha256": "e84b31e9e15a31b2dbcdcd8ec8c86a60fb192974e68121e52fe9d37f6bbc21d7"
+    },
+    {
+      "path": "tools/reference_acceptance.cjs",
+      "sha256": "03b904b8c9ae0fcbbf49efa48c51d704c0ccfb6d1a436c3aebe845e684d9f88b"
+    }
+  ],
+  "builds": {
+    "androidDebug": "passed",
+    "webRelease": "passed",
+    "gateway": "Existing unchanged release gateway exercised by browser"
+  },
+  "flutterRegressionTestsPassed": 31,
+  "automationNote": "Flutter semantics fill was replaced by actual keyboard/pointer events; final worker settings and decoded amplitude verified. No credentials logged.",
+  "referenceTestsRepeatedAfterPublicationCheck": 3,
+  "limits": [
+    "Audio bounded by existing 180-second decoder",
+    "Gain and mid/side width adjustments; automatic EQ not implemented",
+    "Mono sources cannot acquire new stereo detail",
+    "Half-second non-silent input and installed pyloudnorm required"
+  ],
+  "flutterAnalyzer": "No issues found",
+  "decoded": {
+    "frames": 962181,
+    "sample_rate": 44100,
+    "channels": 2,
+    "matched_ab_equal": true,
+    "adjustment_db": -2.9999976790394967,
+    "finite": true,
+    "peak": 0.4701000452041626
+  },
+  "checkedAtUtc": "2026-10-13T06:03:35.2499389Z",
+  "scope": "Private measured reference matching implemented; core browser acceptance passed; physical/iOS checks unavailable",
+  "pending": [
+    "Performance take comping",
+    "Interactive release kit",
+    "Physical Android/iOS acceptance"
+  ],
+  "pythonRegressionTestsPassed": 28,
+  "artifacts": [
+    {
+      "path": "flutter_app/aureon/build/web/main.dart.js",
+      "sha256": "da635c9a3061b95bc6104bfdd54efbb4ffeb678f7c7f5e05911192ec31f579a6"
+    },
+    {
+      "path": "flutter_app/aureon/build/app/outputs/apk/debug/app-debug.apk",
+      "sha256": "e6177ddd5ef4adb3ee2ff95e29f3ca22c46939e00fe17b72fc4ac4e5cb232afa"
+    },
+    {
+      "path": "docs/screenshots/reference-2026-10-13/audio-0.wav",
+      "sha256": "b6902ad924c27970ebfe3dd556e65e10e2dec6104152c2d54db1e93cf2f18827"
+    },
+    {
+      "path": "docs/screenshots/reference-2026-10-13/audio-1.wav",
+      "sha256": "b6902ad924c27970ebfe3dd556e65e10e2dec6104152c2d54db1e93cf2f18827"
+    },
+    {
+      "path": "docs/screenshots/reference-2026-10-13/audio-2.wav",
+      "sha256": "829fe6462ead5fae193c3f84ffe9da4d6b87d1badda9a31e4f75304031e39ad7"
+    }
+  ],
+  "flutterReferenceResponsiveTests": 2
+}

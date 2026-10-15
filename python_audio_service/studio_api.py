@@ -10,6 +10,10 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, select, or_
 import audio_engine as audio
+from arrangement import Arrangement, render as render_arrangement
+import reference_audio
+from take_comping import TakeGroup
+import release_kit as release_tools
 from settings import ASSETS, DATA, INTERNAL_KEY, MAX_UPLOAD, ORIGINS, REDIS_URL
 from store import (
     AuthSession,
@@ -66,7 +70,18 @@ class ArtStyle(BaseModel):
     caption: str = Field(default="", max_length=80)
 
 
+class ReferenceSettings(BaseModel):
+    asset_id: str | None = Field(default=None, max_length=80)
+    gain_db: float = Field(default=0, ge=-12, le=12)
+    width: float = Field(default=1, ge=0, le=2)
+
+
 class ProjectState(BaseModel):
+    document_version: Literal[2] = 2
+    arrangement: Arrangement | None = None
+    reference: ReferenceSettings = Field(default_factory=ReferenceSettings)
+    take_groups: list[TakeGroup] = Field(default_factory=list, max_length=8)
+    release_kit: release_tools.ReleaseSettings = Field(default_factory=release_tools.ReleaseSettings)
     title: str = Field(default="Untitled session", min_length=1, max_length=100)
     genre: Literal["rnb", "trap", "pop", "rap", "drill"] = "rnb"
     lyrics: str = Field(default="", max_length=8000)
@@ -114,7 +129,10 @@ class ProjectSave(BaseModel):
 
 
 class JobStart(BaseModel):
-    kind: Literal["generate", "remix", "video", "mp3"] = "generate"
+    kind: Literal["generate", "remix", "video", "mp3", "arrangement_render", "reference_analysis", "reference_render", "comp_render", "release_kit"] = "generate"
+    source_master_asset_id: str | None = Field(default=None, max_length=80)
+    take_group_id: str | None = Field(default=None, max_length=80)
+    confirm_rights: bool = False
 
 
 class Prompt(BaseModel):
@@ -179,9 +197,26 @@ def owned(db, doc_id, owner, kind=None):
 
 
 def validate_project_assets(db, state, owner):
+    if len({g.id for g in state.take_groups}) != len(state.take_groups):
+        raise HTTPException(422, "Take bank identifiers must be unique.")
+    for group in state.take_groups:
+        for aid in group.asset_ids:
+            take = owned(db, aid, owner, "asset")
+            if not take.data.get("media_type", "").startswith("audio/"):
+                raise HTTPException(422, "Take banks require audio assets.")
+    if state.reference.asset_id:
+        reference = owned(db, state.reference.asset_id, owner, "asset")
+        if not reference.data.get("media_type", "").startswith("audio/"):
+            raise HTTPException(422, "References require an owned audio asset.")
     for aid in (state.beat_asset_id, state.vocal_asset_id, state.cover_asset_id):
         if aid:
             owned(db, aid, owner, "asset")
+    if state.arrangement:
+        for track in state.arrangement.tracks:
+            for clip in track.clips:
+                doc = owned(db, clip.asset_id, owner, "asset")
+                if not doc.data.get("media_type", "").startswith("audio/"):
+                    raise HTTPException(422, "Arrangement clips require audio assets.")
 
 
 def signed_asset(doc):
@@ -298,7 +333,53 @@ def process(job_id):
     directory = ASSETS / job_id
     directory.mkdir(exist_ok=True)
     try:
-        if kind == "generate":
+        if kind == "release_kit":
+            with session() as db:
+                source = owned(db, source_id, owner, "job")
+                master_path = safe_path(owned(db, source.data["master_asset_id"], owner, "asset"))
+            progress(job_id, "rendering", 15)
+            archive, names = release_tools.build(state, master_path, directory, check=lambda: progress(job_id))
+            with session() as db:
+                bundle_id = asset(db, owner, pid, archive, "Release kit", "application/zip", False).id
+                outputs = {name: asset(db, owner, pid, directory/name, name, "video/mp4" if name.endswith('.mp4') else "image/png", False).id for name in names if name.endswith(('.png','.mp4'))}
+            progress(job_id, "done", 100, bundle_asset_id=bundle_id, output_asset_ids=outputs, finished_at=time.time())
+        elif kind in ("reference_analysis", "reference_render"):
+            with session() as db:
+                source = owned(db, source_id, owner, "job")
+                master_path = safe_path(owned(db, source.data["master_asset_id"], owner, "asset"))
+                ref_path = safe_path(owned(db, state["reference"]["asset_id"], owner, "asset"))
+            progress(job_id, "analyzing" if kind == "reference_analysis" else "rendering", 15)
+            if kind == "reference_analysis":
+                result, previews = reference_audio.compare(master_path, ref_path, directory, check=lambda: progress(job_id))
+                with session() as db:
+                    preview_ids = [asset(db, owner, pid, path, name, "audio/wav").id for path, name in zip(previews, ("Matched master", "Matched reference"))]
+                progress(job_id, "done", 100, comparison=result, audition_asset_ids=preview_ids, source_master_asset_id=source.data["master_asset_id"], reference_asset_id=state["reference"]["asset_id"], finished_at=time.time())
+            else:
+                output = reference_audio.render(master_path, directory / "reference-match.wav", state["reference"]["gain_db"], state["reference"]["width"], check=lambda: progress(job_id))
+                with session() as db:
+                    master_id = asset(db, owner, pid, output, state["title"] + " · reference adjustment", "audio/wav").id
+                progress(job_id, "done", 100, master_asset_id=master_id, stem_asset_ids={}, finished_at=time.time())
+        elif kind in ("arrangement_render", "comp_render"):
+            if kind == "comp_render":
+                with session() as db:
+                    group_id = db.get(Document, job_id).data.get("take_group_id")
+                group = next((g for g in state["take_groups"] if g["id"] == group_id), None)
+                if not group:
+                    raise ValueError("The selected take bank is unavailable.")
+                document = TakeGroup.model_validate(group).arrangement()
+            else:
+                document = state.get("arrangement")
+            if not document:
+                raise ValueError("Save an arrangement before rendering.")
+            with session() as db:
+                sources = {c["asset_id"]: safe_path(owned(db, c["asset_id"], owner, "asset")) for t in document["tracks"] for c in t["clips"]}
+            progress(job_id, "rendering", 15)
+            output = render_arrangement(document, sources, directory / "arrangement.wav", check=lambda: progress(job_id))
+            progress(job_id, "rendering", 90)
+            with session() as db:
+                master_id = asset(db, owner, pid, output, state["title"] + " · arrangement", "audio/wav").id
+            progress(job_id, "done", 100, master_asset_id=master_id, stem_asset_ids={}, finished_at=time.time(), render_scope="Sample-based edits and volume/pan automation; render-first preview")
+        elif kind == "generate":
             progress(job_id, "analyzing", 10)
             if state.get("beat_asset_id"):
                 with session() as db:
@@ -713,6 +794,28 @@ def history_status(pid, current=Depends(user)):
         data = edit_history(db, project).data
         return {"can_undo": bool(data["undo"]), "can_redo": bool(data["redo"])}
 
+@app.post("/api/v1/projects/{pid}/arrangement/init")
+def initialize_arrangement(pid, body: Revision, current=Depends(user)):
+    import math
+    import soundfile as sf
+    with session() as db:
+        project = owned(db, pid, current.id, "project")
+        if project.revision != body.revision:
+            raise HTTPException(409, "Project changed. Reopen before migrating arrangement.")
+        if project.data.get("arrangement") is not None:
+            return public(project)
+        master = next((j for j in db.scalars(select(Document).where(Document.kind == "job", Document.parent == pid).order_by(Document.created.desc())) if j.data.get("status") == "done" and j.data.get("job_kind") in ("generate", "remix", "arrangement_render", "reference_render", "comp_render")), None)
+        if not master:
+            raise HTTPException(409, "Create a master before initializing its arrangement.")
+        source = owned(db, master.data["master_asset_id"], current.id, "asset")
+        info = sf.info(safe_path(source))
+        length = math.ceil(info.frames * 44100 / info.samplerate)
+        document = Arrangement.model_validate({"tracks": [{"id": identifier(), "name": "Original master", "clips": [{"id": identifier(), "asset_id": source.id, "start": 0, "source_start": 0, "length": length}]}]}).model_dump()
+        remember_edit(db, project, snapshot(db, project, current.name, "Before arrangement migration"))
+        replace(db, project, {**project.data, "document_version": 2, "arrangement": document}, body.revision)
+        emit(db, project, "project.saved")
+        return public(project)
+
 
 def navigate_history(pid, body, current, direction):
     with session() as db:
@@ -874,6 +977,17 @@ async def upload(
         shutil.rmtree(directory, ignore_errors=True)
         raise
 
+
+@app.get("/api/v1/assets/{aid}/arrangement-metadata")
+def arrangement_metadata(aid, current=Depends(user)):
+    import math
+    import soundfile as sf
+    with session() as db:
+        source = owned(db, aid, current.id, "asset")
+        if not source.data.get("media_type", "").startswith("audio/"):
+            raise HTTPException(422, "Choose an audio source.")
+        info = sf.info(safe_path(source))
+        return {"sample_count": math.ceil(info.frames * 44100 / info.samplerate), "sample_rate": 44100}
 
 @app.get("/api/v1/assets")
 def assets(current=Depends(user)):
@@ -1050,13 +1164,37 @@ def start(
                 j
                 for j in jobs
                 if j.data.get("status") == "done"
-                and j.data.get("job_kind") in ("generate", "remix")
+                and j.data.get("job_kind") in ("generate", "remix", "arrangement_render", "reference_render", "comp_render")
             ),
             None,
         )
-        if body.kind != "generate" and not source:
+        if body.kind not in ("generate", "arrangement_render", "comp_render") and not source:
             raise HTTPException(409, "Generate a master first.")
+        if body.kind == "remix" and not source.data.get("stem_asset_ids"):
+            raise HTTPException(409, "This master has no separate stems. Generate a stem-based mix first.")
         state = ProjectState.model_validate(p.data).model_dump()
+        if body.kind == "release_kit":
+            if not body.confirm_rights:
+                raise HTTPException(400, "Confirm credits and usage rights before exporting.")
+            if body.source_master_asset_id != source.data.get("master_asset_id"):
+                raise HTTPException(409, "The selected master changed. Review the export again.")
+            if not state['release_kit']['artist'].strip() or not state['release_kit']['credits'].strip():
+                raise HTTPException(422, "Enter artist and credits before exporting.")
+        if body.kind == "comp_render":
+            validate_project_assets(db, ProjectState.model_validate(p.data), current.id)
+            group = next((g for g in state["take_groups"] if g["id"] == body.take_group_id), None)
+            if not group or not group["phrases"]:
+                raise HTTPException(422, "Select a take bank with phrase selections.")
+        if body.kind in ("reference_analysis", "reference_render"):
+            validate_project_assets(db, ProjectState.model_validate(p.data), current.id)
+            if not state["reference"]["asset_id"]:
+                raise HTTPException(422, "Select a private audio reference first.")
+            if body.source_master_asset_id != source.data.get("master_asset_id"):
+                raise HTTPException(409, "The master changed. Compare the current master before rendering.")
+        if body.kind == "arrangement_render":
+            validate_project_assets(db, ProjectState.model_validate(p.data), current.id)
+            if not state.get("arrangement") or not any(t["clips"] for t in state["arrangement"]["tracks"]):
+                raise HTTPException(422, "Save at least one arrangement clip before rendering.")
         if state["engine"] == "recording":
             recording = owned(db, state.get("vocal_asset_id"), current.id, "asset")
             if not recording.data.get("consented"):
@@ -1071,6 +1209,7 @@ def start(
                 "progress": 0,
                 "state": state,
                 "source_job_id": source.id if source else None,
+                "take_group_id": body.take_group_id,
                 "idempotency_key": idempotency_key,
             },
             pid,
@@ -1368,7 +1507,7 @@ def publish(pid, body: Publish, current=Depends(user)):
                 j
                 for j in jobs
                 if j.data.get("status") == "done"
-                and j.data.get("job_kind") in ("generate", "remix")
+                and j.data.get("job_kind") in ("generate", "remix", "arrangement_render", "reference_render", "comp_render")
             ),
             None,
         )

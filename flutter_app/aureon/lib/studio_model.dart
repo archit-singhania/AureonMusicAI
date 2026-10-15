@@ -124,6 +124,10 @@ class StudioModel extends ChangeNotifier {
         options: Options(method: method),
       )).data;
     } on DioException catch (e) {
+      // Never log credentials, response bodies or signed media URLs.
+      debugPrint(
+        'Studio request diagnostic: $method $path ${e.type.name} status=${e.response?.statusCode} cause=${e.error.runtimeType}',
+      );
       final detail = e.response?.data is Map
           ? e.response?.data['detail']
           : null;
@@ -330,6 +334,17 @@ class StudioModel extends ChangeNotifier {
     await loadMembers();
     await refreshMaster();
     await connectLive();
+    // Lazy document migration preserves the exact completed source audio.
+    if (current!['arrangement'] == null && master != null && duration > 0) {
+      await save();
+      current = Json.from(
+        await request(
+          'POST',
+          '/projects/${current!['id']}/arrangement/init',
+          data: {'revision': current!['revision']},
+        ),
+      );
+    }
     destination = 0;
     notifyListeners();
   }
@@ -380,6 +395,11 @@ class StudioModel extends ChangeNotifier {
         'beats_per_bar',
         'artwork',
         'params',
+        'document_version',
+        'arrangement',
+        'reference',
+        'take_groups',
+        'release_kit',
       ])
         if (snapshot.containsKey(key)) key: snapshot[key],
     };
@@ -484,7 +504,13 @@ class StudioModel extends ChangeNotifier {
         .where(
           (j) =>
               j['status'] == 'done' &&
-              ['generate', 'remix'].contains(j['job_kind']),
+              [
+                'generate',
+                'remix',
+                'arrangement_render',
+                'reference_render',
+                'comp_render',
+              ].contains(j['job_kind']),
         )
         .toList();
     if (completed.isEmpty) return;

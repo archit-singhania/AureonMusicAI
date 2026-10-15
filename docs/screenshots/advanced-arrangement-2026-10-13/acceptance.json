@@ -1,0 +1,11 @@
+{
+  "checkedAtUtc": "2026-10-13T05:32:39.247Z",
+  "scope": "Actual named-account gateway/worker/browser timeline and curve workflow, reload and light/dark/phone captures",
+  "projectId": "b6fbddb1-f748-4389-bfdb-9501316463d6",
+  "jobId": "63ebba6c-098b-40c6-828d-8ea515b06cab",
+  "sampleCount": 962181,
+  "sampleRate": 44100,
+  "pageErrors": [],
+  "persistedArrangement": true,
+  "realAudio": true
+}
