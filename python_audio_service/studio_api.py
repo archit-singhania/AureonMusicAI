@@ -12,6 +12,7 @@ from sqlalchemy import delete, select, or_
 import audio_engine as audio
 from arrangement import Arrangement, render as render_arrangement
 import reference_audio
+import mastering_quality as quality_tools
 from take_comping import TakeGroup
 import release_kit as release_tools
 from settings import ASSETS, DATA, INTERNAL_KEY, MAX_UPLOAD, ORIGINS, REDIS_URL
@@ -80,6 +81,7 @@ class ProjectState(BaseModel):
     document_version: Literal[2] = 2
     arrangement: Arrangement | None = None
     reference: ReferenceSettings = Field(default_factory=ReferenceSettings)
+    mastering_quality: quality_tools.QualitySettings = Field(default_factory=quality_tools.QualitySettings)
     take_groups: list[TakeGroup] = Field(default_factory=list, max_length=8)
     release_kit: release_tools.ReleaseSettings = Field(default_factory=release_tools.ReleaseSettings)
     title: str = Field(default="Untitled session", min_length=1, max_length=100)
@@ -129,7 +131,7 @@ class ProjectSave(BaseModel):
 
 
 class JobStart(BaseModel):
-    kind: Literal["generate", "remix", "video", "mp3", "arrangement_render", "reference_analysis", "reference_render", "comp_render", "release_kit"] = "generate"
+    kind: Literal["generate", "remix", "video", "mp3", "arrangement_render", "reference_analysis", "reference_render", "comp_render", "release_kit", "mastering_analysis"] = "generate"
     source_master_asset_id: str | None = Field(default=None, max_length=80)
     take_group_id: str | None = Field(default=None, max_length=80)
     confirm_rights: bool = False
@@ -333,7 +335,26 @@ def process(job_id):
     directory = ASSETS / job_id
     directory.mkdir(exist_ok=True)
     try:
-        if kind == "release_kit":
+        if kind == "mastering_analysis":
+            with session() as db:
+                source = owned(db, source_id, owner, "job")
+                source_master = source.data["master_asset_id"]
+                master_path = safe_path(owned(db, source_master, owner, "asset"))
+            progress(job_id, "analyzing", 10)
+            last_check = 0.0
+            def check_quality():
+                nonlocal last_check
+                now = time.monotonic()
+                if now - last_check >= .5:
+                    progress(job_id)
+                    last_check = now
+            report = quality_tools.analyze(master_path, quality_tools.QualitySettings.model_validate(state["mastering_quality"]), check=check_quality)
+            report_path = directory / "mastering-report.json"
+            report_path.write_text(json.dumps(report, allow_nan=False, indent=2), encoding="utf-8")
+            with session() as db:
+                report_id = asset(db, owner, pid, report_path, "Mastering quality report", "application/json", False).id
+            progress(job_id, "done", 100, quality_report=report, report_asset_id=report_id, source_master_asset_id=source_master, finished_at=time.time())
+        elif kind == "release_kit":
             with session() as db:
                 source = owned(db, source_id, owner, "job")
                 master_path = safe_path(owned(db, source.data["master_asset_id"], owner, "asset"))
@@ -1173,6 +1194,8 @@ def start(
         if body.kind == "remix" and not source.data.get("stem_asset_ids"):
             raise HTTPException(409, "This master has no separate stems. Generate a stem-based mix first.")
         state = ProjectState.model_validate(p.data).model_dump()
+        if body.kind == "mastering_analysis" and body.source_master_asset_id != source.data.get("master_asset_id"):
+            raise HTTPException(409, "The master changed. Select the current master before analysis.")
         if body.kind == "release_kit":
             if not body.confirm_rights:
                 raise HTTPException(400, "Confirm credits and usage rights before exporting.")

@@ -398,6 +398,7 @@ class StudioModel extends ChangeNotifier {
         'document_version',
         'arrangement',
         'reference',
+        'mastering_quality',
         'take_groups',
         'release_kit',
       ])

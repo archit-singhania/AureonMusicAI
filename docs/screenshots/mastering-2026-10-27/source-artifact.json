@@ -1,0 +1,27 @@
+{
+  "checked_at_utc": "2026-10-27T11:30:18.5538091Z",
+  "sha256": {
+    "python_audio_service/mastering_quality.py": "e78aeaa45f3f8c3ca4b313f1af9182e6cfd55bed59a6b30aa93d3091a9301863",
+    "flutter_app/aureon/pubspec.lock": "aefc8b968c0e3579c891548273225cb33b8978e4b71c079142e548035f1006cf",
+    "tools/mastering_acceptance.cjs": "7e61346f57095bfa4d83928b746cd44b9210a99099dbba636bee6edc5fe5da00",
+    "flutter_app/aureon/lib/studio_ui.dart": "0a935134ce938b0d53af5b49546fb10b7517ffa27b33ae4efd6934f6c25e52d4",
+    "flutter_app/aureon/lib/mastering_ui.dart": "318211314294a74635d92ac74908324a28bfdcfbe8f433698ee2a20ac5bf15d7",
+    "flutter_app/aureon/lib/studio_model.dart": "70d945783621b0590a546b4096b8a1ef58794593a0a6e76dced7ae32a2f46617",
+    "python_audio_service/studio_api.py": "070374bf2948048f720f4253ca460d466900b96e6c6211ac2fdadbea3fb1b605",
+    "flutter_app/aureon/build/web/main.dart.js": "1019506949b846315a975bc1f77e21f0fc987b51ed7120b1f8949363974da365"
+  },
+  "web_api_origin": "http://127.0.0.1:5094",
+  "scope": "Mastering browser acceptance source and web artifact; not a full release manifest",
+  "local_web_zip": {
+    "bundle_matches_tested_build": true,
+    "path": ".tools/mastering-release-20261027/aureon-web-local.zip",
+    "sha256": "90921d89fc24bca26424a6511343d90a8507fda3f67270941a088dcb4da95752"
+  },
+  "android_debug_apk": {
+    "sha256": "323c7b897e49579a42956d5b0322682d8de788764fd6ef6a30f1bcdfff5421f5",
+    "installation_tested": false,
+    "api_default": "http://10.0.2.2:5000",
+    "path": ".tools/mastering-release-20261027/aureon-android-debug.apk",
+    "build": "assembleDebug --offline"
+  }
+}

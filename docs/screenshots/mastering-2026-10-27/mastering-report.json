@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "source_name": "master.wav",
+  "sample_rate": 44100,
+  "frames": 962181,
+  "profile": {
+    "target_lufs": -14.0,
+    "ceiling_dbtp": -1.0,
+    "silence_seconds": 2.0
+  },
+  "integrated_lufs": -14.0,
+  "estimated_true_peak_dbtp": -2.518,
+  "clipped_frames": 0,
+  "stereo_correlation": 0.9019,
+  "mono_energy_delta_db": -0.218,
+  "findings": [],
+  "limitations": "4x polyphase true-peak estimate, not certified conformance metering. Silence boundaries use 100 ms windows. Targets are user preferences, not platform certification. Analysis never changes audio."
+}

@@ -16,6 +16,29 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def test_gateway_mastering_job_and_report_export():
+    with httpx.Client(base_url=URL, timeout=60) as client:
+        demo = client.post('/api/v1/demo').json()
+        headers = {'Authorization': 'Bearer ' + demo['token']}
+        source = demo['job']
+        deadline = time.monotonic() + 60
+        while source['status'] not in ('done', 'failed', 'cancelled') and time.monotonic() < deadline:
+            time.sleep(.3)
+            source = client.get('/api/v1/jobs/' + source['id'], headers=headers).json()
+        assert source['status'] == 'done', source
+        result = client.post('/api/v1/projects/' + demo['project']['id'] + '/jobs', headers=headers,
+                             json={'kind': 'mastering_analysis', 'source_master_asset_id': source['master_asset_id']})
+        assert result.status_code == 202, result.text
+        job = result.json()
+        deadline = time.monotonic() + 60
+        while job['status'] not in ('done', 'failed', 'cancelled') and time.monotonic() < deadline:
+            time.sleep(.3)
+            job = client.get('/api/v1/jobs/' + job['id'], headers=headers).json()
+        assert job['status'] == 'done', job
+        asset = client.get('/api/v1/assets/' + job['report_asset_id'], headers=headers).json()
+        assert client.get(asset['url']).json() == job['quality_report']
+
+
 def test_gateway_preserves_consented_multipart_audio_upload():
     """MVC must leave the multipart body intact for Python's UploadFile binder."""
     with httpx.Client(base_url=URL, timeout=30) as client:

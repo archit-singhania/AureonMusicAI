@@ -12,6 +12,7 @@ import 'studio_theme.dart';
 import 'studio_motion.dart';
 import 'arrangement_ui.dart';
 import 'reference_ui.dart';
+import 'mastering_ui.dart';
 import 'production_ui.dart';
 
 const violet = StudioTheme.iris;
@@ -801,6 +802,8 @@ class StudioPage extends StatelessWidget {
               const ArrangementPanel(),
               const SizedBox(height: 20),
               const ReferencePanel(),
+              const SizedBox(height: 20),
+              const MasteringQualityPanel(),
               const SizedBox(height: 20),
               const ProductionPanel(),
               const SizedBox(height: 20),
