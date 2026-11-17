@@ -397,6 +397,7 @@ class StudioModel extends ChangeNotifier {
         'params',
         'document_version',
         'arrangement',
+        'midi',
         'reference',
         'mastering_quality',
         'take_groups',
@@ -847,6 +848,26 @@ class StudioModel extends ChangeNotifier {
     updateLibraryProject(current!);
     await loadVersions();
   });
+  Future<void> restoreNamedMix(String id) async {
+    if (dirty || current == null) {
+      throw StateError('Save current edits before restoring.');
+    }
+    final projectId = current!['id'];
+    final restored = Json.from(
+      await request(
+        'POST',
+        '/projects/$projectId/mix-versions/$id/restore',
+        data: {'revision': current!['revision']},
+      ),
+    );
+    updateLibraryProject(restored);
+    if (current?['id'] == projectId) {
+      current = restored;
+      await loadVersions();
+    }
+    notifyListeners();
+  }
+
   Future<void> loadMembers() async {
     if (current != null) {
       members = list(

@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, select, or_
 import audio_engine as audio
+import midi_studio
 from arrangement import Arrangement, render as render_arrangement
 import reference_audio
 import mastering_quality as quality_tools
@@ -78,6 +79,7 @@ class ReferenceSettings(BaseModel):
 
 
 class ProjectState(BaseModel):
+    midi: midi_studio.Score = Field(default_factory=midi_studio.Score)
     document_version: Literal[2] = 2
     arrangement: Arrangement | None = None
     reference: ReferenceSettings = Field(default_factory=ReferenceSettings)
@@ -131,7 +133,7 @@ class ProjectSave(BaseModel):
 
 
 class JobStart(BaseModel):
-    kind: Literal["generate", "remix", "video", "mp3", "arrangement_render", "reference_analysis", "reference_render", "comp_render", "release_kit", "mastering_analysis"] = "generate"
+    kind: Literal["generate", "remix", "video", "mp3", "arrangement_render", "reference_analysis", "reference_render", "comp_render", "release_kit", "mastering_analysis", "midi_render"] = "generate"
     source_master_asset_id: str | None = Field(default=None, max_length=80)
     take_group_id: str | None = Field(default=None, max_length=80)
     confirm_rights: bool = False
@@ -335,7 +337,32 @@ def process(job_id):
     directory = ASSETS / job_id
     directory.mkdir(exist_ok=True)
     try:
-        if kind == "mastering_analysis":
+        if kind == "midi_render":
+            progress(job_id, "rendering", 10)
+            output = directory / "instrument.wav"
+            heartbeat = time.monotonic()
+            def check_render():
+                nonlocal heartbeat
+                now = time.monotonic()
+                if now - heartbeat >= .25:
+                    progress(job_id)
+                    heartbeat = now
+            midi_studio.render(midi_studio.Score.model_validate(state["midi"]),state["bpm"],output,check=check_render)
+            progress(job_id)
+            with session() as db:
+                master = asset(db,owner,pid,output,state["title"]+" · MIDI "+state["midi"]["preset"],"audio/wav")
+                master_id = master.id
+            progress(job_id,"done",100,master_asset_id=master_id,stem_asset_ids={},finished_at=time.time())
+        elif kind == "mix_version_match":
+            with session() as db:
+                paths = [safe_path(owned(db, aid, owner, "asset")) for aid in state["master_ids"]]
+            progress(job_id, "analyzing", 10)
+            report, previews = reference_audio.compare(*paths, directory, check=lambda: progress(job_id))
+            with session() as db:
+                ids = [asset(db, owner, pid, path, f"Matched version {side}", "audio/wav").id
+                       for side, path in zip(("A", "B"), previews)]
+            progress(job_id, "done", 100, comparison=report, audition_asset_ids=ids, finished_at=time.time())
+        elif kind == "mastering_analysis":
             with session() as db:
                 source = owned(db, source_id, owner, "job")
                 source_master = source.data["master_asset_id"]
@@ -577,6 +604,8 @@ async def lifespan(app):
 
 
 app = FastAPI(title="Aureon Studio", version="1.0.0", lifespan=lifespan)
+from mix_reviews import review_routes
+app.include_router(review_routes(user, safe_path, MEDIA_SECRET))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ORIGINS,
@@ -825,7 +854,7 @@ def initialize_arrangement(pid, body: Revision, current=Depends(user)):
             raise HTTPException(409, "Project changed. Reopen before migrating arrangement.")
         if project.data.get("arrangement") is not None:
             return public(project)
-        master = next((j for j in db.scalars(select(Document).where(Document.kind == "job", Document.parent == pid).order_by(Document.created.desc())) if j.data.get("status") == "done" and j.data.get("job_kind") in ("generate", "remix", "arrangement_render", "reference_render", "comp_render")), None)
+        master = next((j for j in db.scalars(select(Document).where(Document.kind == "job", Document.parent == pid).order_by(Document.created.desc())) if j.data.get("status") == "done" and j.data.get("job_kind") in ("generate", "remix", "arrangement_render", "reference_render", "comp_render", "midi_render")), None)
         if not master:
             raise HTTPException(409, "Create a master before initializing its arrangement.")
         source = owned(db, master.data["master_asset_id"], current.id, "asset")
@@ -884,10 +913,13 @@ def save(pid, body: ProjectSave, current=Depends(user)):
         p = owned(db, pid, current.id, "project")
         validate_project_assets(db, body.state, current.id)
         remember_edit(db, p, snapshot(db, p, current.name, body.action))
+        next_state = body.state.model_dump()
+        if "midi" not in body.state.model_fields_set and "midi" in p.data:
+            next_state["midi"] = p.data["midi"]
         replace(
             db,
             p,
-            {**body.state.model_dump(), "invite_code": p.data["invite_code"]},
+            {**next_state, "invite_code": p.data["invite_code"]},
             body.revision,
         )
         emit(db, p, "project.saved")
@@ -902,6 +934,118 @@ def archive(pid, current=Depends(user)):
             raise HTTPException(403, "Only the owner can archive.")
         replace(db, p, {**p.data, "archived": True})
     return {"status": "archived"}
+
+
+class NameMix(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    job_id: str = Field(min_length=1, max_length=80)
+
+
+class MixPair(BaseModel):
+    left: str
+    right: str
+    match_audio: bool = False
+
+
+def project_mix(db, pid, vid):
+    version = db.get(Document, vid)
+    if not version or version.parent != pid or version.kind != "mix_version":
+        raise HTTPException(404, "Mix version not found in this project.")
+    return version
+
+
+@app.post("/api/v1/projects/{pid}/mix-versions", status_code=201)
+def name_mix(pid, body: NameMix, current=Depends(user)):
+    with session() as db:
+        project = owned(db, pid, current.id, "project")
+        job = owned(db, body.job_id, current.id, "job")
+        if not body.name.strip() or job.parent != pid or job.data.get("status") != "done" or job.data.get("job_kind") not in {"generate", "remix", "arrangement_render", "reference_render", "comp_render", "midi_render"}:
+            raise HTTPException(422, "Choose a named, completed audio render in this project.")
+        master = owned(db, job.data.get("master_asset_id"), current.id, "asset")
+        # Capture the input used by the chosen render, even if the live project has changed.
+        version = create(db, "mix_version", project.owner, {"name": body.name.strip(), "job_id": job.id,
+            "master_asset_id": master.id, "state": ProjectState.model_validate(job.data["state"]).model_dump(),
+            "author": current.name}, pid)
+        emit(db, project, "mix.version.saved")
+        return public(version)
+
+
+@app.get("/api/v1/projects/{pid}/mix-versions")
+def named_mixes(pid, current=Depends(user)):
+    with session() as db:
+        owned(db, pid, current.id, "project")
+        return [public(row) for row in db.scalars(select(Document).where(Document.parent == pid,
+                Document.kind == "mix_version").order_by(Document.created.desc()))]
+
+
+@app.post("/api/v1/projects/{pid}/mix-versions/compare")
+def compare_mixes(pid, body: MixPair, current=Depends(user)):
+    with session() as db:
+        project = owned(db, pid, current.id, "project")
+        if body.left == body.right:
+            raise HTTPException(422, "Select two distinct mix versions.")
+        left, right = [project_mix(db, pid, vid) for vid in (body.left, body.right)]
+        a, b = left.data["state"], right.data["state"]
+        changes = []
+        def compare(path, before, after):
+            if isinstance(before, dict) and isinstance(after, dict):
+                for key in sorted(before.keys() | after.keys()):
+                    compare(f"{path}.{key}" if path else key, before.get(key), after.get(key))
+            elif isinstance(before, list) and isinstance(after, list) and all(isinstance(item,dict) and isinstance(item.get("id"),str) for item in before+after):
+                old = {item["id"]:item for item in before}
+                new = {item["id"]:item for item in after}
+                if list(old) != list(new):
+                    changes.append({"field":path+".order", "before":list(old), "after":list(new)})
+                for key in sorted(old.keys() | new.keys()):
+                    compare(f"{path}[{key}]", old.get(key), new.get(key))
+            elif before != after:
+                changes.append({"field": path, "before": before, "after": after})
+        compare("", a, b)
+        masters = [owned(db, version.data["master_asset_id"], current.id, "asset") for version in (left,right)]
+        result = {"left": left.id, "right": right.id, "changes": changes, "audio": [signed_asset(m) for m in masters]}
+        if body.match_audio:
+            jobs = db.scalars(select(Document).where(Document.kind == "job", Document.parent == pid))
+            if sum(j.data.get("status") not in {"done", "failed", "cancelled"} for j in jobs) >= 3:
+                raise HTTPException(429, "Wait for an active render.")
+            job = create(db, "job", project.owner, {"job_kind":"mix_version_match", "status":"queued", "progress":0,
+                "state":{"master_ids":[m.id for m in masters]}, "mix_version_ids":[left.id,right.id]}, pid)
+            emit(db, job, "job.queued")
+            result["job_id"] = job.id
+        return result
+
+
+@app.post("/api/v1/projects/{pid}/mix-versions/{vid}/restore")
+def restore_mix(pid, vid, body: Revision, current=Depends(user)):
+    with session() as db:
+        project = owned(db, pid, current.id, "project")
+        version = project_mix(db, pid, vid)
+        state = ProjectState.model_validate(version.data["state"])
+        validate_project_assets(db, state, current.id)
+        remember_edit(db, project, snapshot(db, project, current.name, "Before restoring named mix"))
+        replace(db, project, {**state.model_dump(), "invite_code":project.data["invite_code"]}, body.revision)
+        emit(db, project, "mix.version.restored")
+        return public(project)
+
+
+@app.post("/api/v1/projects/{pid}/midi/import")
+async def preview_midi(pid, file: UploadFile=File(...), current=Depends(user)):
+    with session() as db:
+        owned(db,pid,current.id,"project")
+    raw=await file.read(262145)
+    try:
+        score,unsupported=midi_studio.import_midi(raw)
+    except (ValueError,EOFError,OSError,IndexError,KeyError) as exc:
+        raise HTTPException(422,"Malformed or unsupported MIDI file: "+str(exc)[:180]) from exc
+    return {"midi":score.model_dump(),"unsupported":unsupported}
+
+
+@app.get("/api/v1/projects/{pid}/midi/export")
+def export_midi_score(pid,current=Depends(user)):
+    from fastapi.responses import Response
+    with session() as db:
+        project=ProjectState.model_validate(owned(db,pid,current.id,"project").data)
+        return Response(midi_studio.export_midi(project.midi,project.bpm), media_type="audio/midi",
+                        headers={"Content-Disposition":"attachment; filename=composition.mid"})
 
 
 @app.get("/api/v1/projects/{pid}/versions")
@@ -1185,15 +1329,17 @@ def start(
                 j
                 for j in jobs
                 if j.data.get("status") == "done"
-                and j.data.get("job_kind") in ("generate", "remix", "arrangement_render", "reference_render", "comp_render")
+                and j.data.get("job_kind") in ("generate", "remix", "arrangement_render", "reference_render", "comp_render", "midi_render")
             ),
             None,
         )
-        if body.kind not in ("generate", "arrangement_render", "comp_render") and not source:
+        if body.kind not in ("generate", "arrangement_render", "comp_render", "midi_render") and not source:
             raise HTTPException(409, "Generate a master first.")
         if body.kind == "remix" and not source.data.get("stem_asset_ids"):
             raise HTTPException(409, "This master has no separate stems. Generate a stem-based mix first.")
         state = ProjectState.model_validate(p.data).model_dump()
+        if body.kind == "midi_render" and not state["midi"]["notes"]:
+            raise HTTPException(422,"Add notes and save the score before rendering.")
         if body.kind == "mastering_analysis" and body.source_master_asset_id != source.data.get("master_asset_id"):
             raise HTTPException(409, "The master changed. Select the current master before analysis.")
         if body.kind == "release_kit":
@@ -1530,7 +1676,7 @@ def publish(pid, body: Publish, current=Depends(user)):
                 j
                 for j in jobs
                 if j.data.get("status") == "done"
-                and j.data.get("job_kind") in ("generate", "remix", "arrangement_render", "reference_render", "comp_render")
+                and j.data.get("job_kind") in ("generate", "remix", "arrangement_render", "reference_render", "comp_render", "midi_render")
             ),
             None,
         )

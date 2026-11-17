@@ -70,7 +70,8 @@ def wait(client, headers, jid):
         job = client.get("/api/v1/jobs/" + jid, headers=headers).json()
         if job["status"] in ("done", "failed", "cancelled"):
             return job
-        time.sleep(0.1)
+        # Public gateway checks share the per-IP request budget with other journeys.
+        time.sleep(0.1 if isinstance(client, TestClient) else 1.0)
     pytest.fail("DSP worker did not complete within its test timeout.")
 
 def test_arrangement_job_persists_edits_renders_real_audio_and_rejects_foreign_sources(client):

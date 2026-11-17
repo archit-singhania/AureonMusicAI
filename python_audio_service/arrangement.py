@@ -1,5 +1,6 @@
 """Versioned non-destructive sample edits and bounded, cancellable stereo rendering."""
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Literal
 import numpy as np
 import soundfile as sf
@@ -35,12 +36,17 @@ class Clip(BaseModel):
     start: StrictInt = Field(ge=0, le=LIMIT)
     source_start: StrictInt = Field(default=0, ge=0, le=LIMIT)
     length: StrictInt = Field(ge=1, le=LIMIT)
+    source_length: StrictInt | None = Field(default=None, ge=1, le=LIMIT)
+    tempo_ratio: FiniteFloat = Field(default=1, ge=0.5, le=2)
+    pitch_semitones: FiniteFloat = Field(default=0, ge=-12, le=12)
     repeats: StrictInt = Field(default=1, ge=1, le=16)
     fade_in: StrictInt = Field(default=0, ge=0, le=LIMIT)
     fade_out: StrictInt = Field(default=0, ge=0, le=LIMIT)
 
     @model_validator(mode="after")
     def bounds(self):
+        if self.source_length is not None and abs(self.source_length - self.length * self.tempo_ratio) > 2:
+            raise ValueError("Source span is inconsistent with rendered length and tempo.")
         if self.start + self.length * self.repeats > LIMIT:
             raise ValueError("Arrangement exceeds the supported duration.")
         if self.fade_in + self.fade_out > self.length:
@@ -98,6 +104,8 @@ def render(document, sources, output, check=lambda: None, chunk_size=65536):
     output.parent.mkdir(parents=True, exist_ok=True)
     normalized = {}
     handles = {}
+    transforms = {}
+    scratch = TemporaryDirectory(prefix="clip-transform-", dir=output.parent)
     try:
         for index, aid in enumerate(dict.fromkeys(c.asset_id for c in clips)):
             check()
@@ -109,9 +117,32 @@ def render(document, sources, output, check=lambda: None, chunk_size=65536):
             normalized[aid] = path
             del samples
             handles[aid] = sf.SoundFile(path)
-        for clip in clips:
-            if clip.source_start + clip.length > handles[clip.asset_id].frames:
+        transformed_samples = 0
+        for index, clip in enumerate(clips):
+            source_frames = clip.source_length or max(1, round(clip.length * clip.tempo_ratio))
+            if clip.source_start + source_frames > handles[clip.asset_id].frames:
                 raise ValueError("Clip trim extends beyond the normalized source.")
+            if clip.tempo_ratio == 1 and clip.pitch_semitones == 0 and source_frames == clip.length:
+                continue
+            check()
+            transformed_samples += clip.length
+            if transformed_samples > 8 * LIMIT:
+                raise ValueError("Transformed clip audio exceeds the per-render processing budget.")
+            binary = audio.ffmpeg()
+            if not binary:
+                raise ValueError("Install FFmpeg for rendered tempo and pitch editing.")
+            pitched_rate = round(RATE * 2 ** (clip.pitch_semitones / 12))
+            speed = clip.tempo_ratio * RATE / pitched_rate
+            # Chaining two equal stages keeps each within atempo's 0.5–2 range.
+            stage = min(2, max(0.5, speed ** 0.5))
+            filters = [f"atrim=start_sample={clip.source_start}:end_sample={clip.source_start + source_frames}",
+                       "asetpts=PTS-STARTPTS", f"asetrate={pitched_rate}", f"aresample={RATE}",
+                       f"atempo={stage}", f"atempo={stage}", "apad", f"atrim=end_sample={clip.length}"]
+            target = Path(scratch.name) / f"{index}.wav"
+            audio.command([binary, "-nostdin", "-v", "error", "-i", str(normalized[clip.asset_id]),
+                           "-af", ",".join(filters), "-c:a", "pcm_f32le", str(target)], timeout=90)
+            transforms[id(clip)] = sf.SoundFile(target)
+            check()
         end = max(c.start + c.length * c.repeats for c in clips)
         with sf.SoundFile(output, "w", samplerate=RATE, channels=2, subtype="PCM_24") as writer:
             for offset in range(0, end, chunk_size):
@@ -130,8 +161,9 @@ def render(document, sources, output, check=lambda: None, chunk_size=65536):
                             if lo >= hi:
                                 continue
                             local = np.arange(lo - start, hi - start)
-                            source = handles[clip.asset_id]
-                            source.seek(clip.source_start + int(local[0]))
+                            transformed = id(clip) in transforms
+                            source = transforms[id(clip)] if transformed else handles[clip.asset_id]
+                            source.seek((0 if transformed else clip.source_start) + int(local[0]))
                             data = source.read(hi - lo, dtype="float64", always_2d=True)
                             fade = np.ones(len(local))
                             if clip.fade_in:
@@ -157,5 +189,7 @@ def render(document, sources, output, check=lambda: None, chunk_size=65536):
         output.unlink(missing_ok=True)
         raise
     finally:
+        for handle in transforms.values(): handle.close()
+        scratch.cleanup()
         for handle in handles.values(): handle.close()
         for path in normalized.values(): path.unlink(missing_ok=True)

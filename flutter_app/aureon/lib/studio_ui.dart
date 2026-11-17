@@ -13,6 +13,9 @@ import 'studio_motion.dart';
 import 'arrangement_ui.dart';
 import 'reference_ui.dart';
 import 'mastering_ui.dart';
+import 'mix_versions_ui.dart';
+import 'mix_reviews_ui.dart';
+import 'midi_ui.dart';
 import 'production_ui.dart';
 
 const violet = StudioTheme.iris;
@@ -800,10 +803,14 @@ class StudioPage extends StatelessWidget {
               ),
               const SizedBox(height: 26),
               const ArrangementPanel(),
+              if (m.current != null)
+                MidiStudioPanel(key: ValueKey('midi-${m.current!['id']}')),
               const SizedBox(height: 20),
               const ReferencePanel(),
               const SizedBox(height: 20),
               const MasteringQualityPanel(),
+              if (m.current != null)
+                MixVersionsPanel(key: ValueKey('mix-${m.current!['id']}')),
               const SizedBox(height: 20),
               const ProductionPanel(),
               const SizedBox(height: 20),
@@ -2062,6 +2069,7 @@ class _LibraryPageState extends State<LibraryPage> {
               label: const Text('New session'),
             ),
           ),
+          if (m.authenticated) MixReviewInbox(key: ValueKey(m.account?['id'])),
           const SizedBox(height: 8),
           Wrap(
             spacing: 12,

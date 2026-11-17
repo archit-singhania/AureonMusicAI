@@ -195,15 +195,40 @@ class _ArrangementPanelState extends State<ArrangementPanel> {
         'Timeline start': '${clip['start']}',
         'Source start': '${clip['source_start']}',
         'Length': '${clip['length']}',
+        'Tempo ratio (0.5–2)': '${clip['tempo_ratio'] ?? 1}',
+        'Pitch shift (−12 to +12 semitones)': '${clip['pitch_semitones'] ?? 0}',
         'Repetitions': '${clip['repeats'] ?? 1}',
         'Fade in': '${clip['fade_in'] ?? 0}',
         'Fade out': '${clip['fade_out'] ?? 0}',
       },
       (v) {
-        final numbers = v.map((k, value) => MapEntry(k, int.parse(value)));
+        final tempo = double.parse(v['Tempo ratio (0.5–2)']!);
+        final pitch = double.parse(v['Pitch shift (−12 to +12 semitones)']!);
+        if (!tempo.isFinite ||
+            tempo < 0.5 ||
+            tempo > 2 ||
+            !pitch.isFinite ||
+            pitch.abs() > 12) {
+          throw const FormatException(
+            'Tempo must be 0.5–2 and pitch must be within one octave.',
+          );
+        }
+        final numbers = Map.fromEntries(
+          v.entries
+              .where(
+                (e) => !e.key.startsWith('Tempo') && !e.key.startsWith('Pitch'),
+              )
+              .map((e) => MapEntry(e.key, int.parse(e.value))),
+        );
         final start = numbers['Timeline start']!,
             source = numbers['Source start']!,
-            length = numbers['Length']!,
+            sourceLength =
+                numbers['Length'] == clip['length'] &&
+                    clip['source_length'] is int
+                ? clip['source_length'] as int
+                : (numbers['Length']! * ((clip['tempo_ratio'] ?? 1) as num))
+                      .round(),
+            length = (sourceLength / tempo).round(),
             repeat = numbers['Repetitions']!,
             fi = numbers['Fade in']!,
             fo = numbers['Fade out']!;
@@ -228,6 +253,9 @@ class _ArrangementPanelState extends State<ArrangementPanel> {
                 'start': start,
                 'source_start': source,
                 'length': length,
+                'source_length': sourceLength,
+                'tempo_ratio': tempo,
+                'pitch_semitones': pitch,
                 'repeats': repeat,
                 'fade_in': fi,
                 'fade_out': fo,
@@ -740,6 +768,19 @@ class _ArrangementPanelState extends State<ArrangementPanel> {
                     onPressed: () => clipEdit(m, clip!),
                     child: const Text('Inspect / trim / loop / fades'),
                   ),
+                  Text(
+                    'Rendered clip: ${((clip['length'] as int) / arrangementRate).toStringAsFixed(2)} s · ${clip['tempo_ratio'] ?? 1}× tempo · ${clip['pitch_semitones'] ?? 0} semitones',
+                  ),
+                  for (final asset in sources.where(
+                    (a) => a['id'] == clip!['asset_id'] && a['url'] is String,
+                  ))
+                    OutlinedButton(
+                      onPressed: () => m.playPreview(
+                        asset['url'],
+                        '${asset['name']} · original asset',
+                      ),
+                      child: const Text('Audition original asset'),
+                    ),
                   OutlinedButton(
                     onPressed: () => move(
                       m,

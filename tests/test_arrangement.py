@@ -11,6 +11,21 @@ from arrangement import Arrangement, Envelope, values, render
 def document(**clip):
     return {"tracks": [{"id": "track", "name": "Track", "clips": [{"id": "clip", "asset_id": "asset", "start": 5, "source_start": 10, "length": 40, **clip}]}]}
 
+@pytest.mark.parametrize('tempo,pitch,frequency', [(2,0,440),(1,12,880),(.5,-12,220)])
+def test_independent_rendered_tempo_and_pitch(tmp_path,tempo,pitch,frequency):
+    rate = 44100
+    original = tmp_path / 'tone.wav'
+    sf.write(original, .15*np.sin(2*np.pi*440*np.arange(2*rate)/rate), rate)
+    before = original.read_bytes()
+    length = round(2*rate/tempo)
+    doc = document(start=0,source_start=0,length=length,tempo_ratio=tempo,pitch_semitones=pitch)
+    samples,sr = sf.read(render(doc, {'asset':original},tmp_path/'processed.wav'))
+    assert sr == rate and samples.shape == (length,2)
+    middle = samples[length//4:3*length//4,0]
+    peak = np.argmax(np.abs(np.fft.rfft(middle*np.hanning(len(middle))))) * rate / len(middle)
+    assert abs(peak-frequency) < 4
+    assert original.read_bytes() == before
+
 def test_canonical_boundaries_loop_trim_and_source_preservation(tmp_path):
     source = tmp_path / "source.wav"
     sf.write(source, np.column_stack([np.arange(100) / 1000] * 2), 44100, subtype="FLOAT")

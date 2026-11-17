@@ -17,3 +17,4 @@ requests==2.34.2
 httpx==0.28.1
 boto3>=1.40,<2
 websockets>=15,<17
+mido==1.3.3

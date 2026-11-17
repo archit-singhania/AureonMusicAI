@@ -43,12 +43,27 @@ void splitArrangementClip(
         'Split inside the clip body, outside its fades.',
       );
     }
-    clips[index] = {...clip, 'length': cut, 'fade_out': 0};
+    final tempo = (clip['tempo_ratio'] ?? 1) as num;
+    final sourceLength =
+        (clip['source_length'] as int?) ?? (length * tempo).round();
+    final consumed = (cut * tempo).round();
+    if (consumed < 1 || consumed >= sourceLength) {
+      throw const FormatException(
+        'Both halves need at least one source sample.',
+      );
+    }
+    clips[index] = {
+      ...clip,
+      'length': cut,
+      'source_length': consumed,
+      'fade_out': 0,
+    };
     clips.insert(index + 1, {
       ...clip,
       'id': nextId,
       'start': sample,
-      'source_start': (clip['source_start'] as int) + cut,
+      'source_start': (clip['source_start'] as int) + consumed,
+      'source_length': sourceLength - consumed,
       'length': length - cut,
       'fade_in': 0,
     });

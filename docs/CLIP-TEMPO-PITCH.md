@@ -1,0 +1,9 @@
+# Rendered tempo and pitch edits
+
+In Studio, add an audio asset to an arrangement and select its clip. Open the clip inspector and enter a tempo ratio between 0.5 and 2 and a pitch shift between −12 and +12 semitones. At twice the tempo, a two-second clip occupies one second on the timeline. Changing only the pitch preserves duration. The inspector shows the saved duration, ratio and shift after the edit.
+
+Use **Audition original asset** to listen to the full source. Choose **Render arrangement**, wait for the job to finish, then use **Play rendered preview** to hear the processed mix. Rendering requires FFmpeg. The arrangement retains the edit instructions and original asset references through the existing project revision mechanism. Earlier clips default to normal tempo and pitch. Edits are applied during rendering. Large pitch and tempo changes can introduce audible artifacts, especially on vocals and transient sounds.
+
+The renderer trims in normalized 44.1 kHz source samples, applies pitch-rate conversion and time stretching, and writes the declared timeline frame count. Repetitions reuse the processed clip. Timeline fades and automation operate in rendered samples. The exact source span prevents an odd source length from extending beyond the source when the timeline duration is rounded. Intermediate transform files are temporary.
+
+Verification fixtures measure decoded WAV frame counts and spectral peaks for independent tempo and pitch changes and compare original WAV bytes after rendering. Remaining acceptance includes the complete gateway and Flutter save/reopen/render journey, audition on a physical device, and cancellation during the individual FFmpeg operation. The current worker observes cancellation between clip transforms and during mixing, with a 90-second timeout per FFmpeg invocation.

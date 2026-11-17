@@ -46,6 +46,20 @@ Map<String, dynamic> fixture() => {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('Tempo split partitions the exact original span at an odd boundary', () {
+    final doc = cloneArrangement(fixture());
+    final clip = doc['tracks'][0]['clips'][0];
+    clip['start'] = 0;
+    clip['fade_in'] = clip['fade_out'] = 0;
+    clip['tempo_ratio'] = 2.0;
+    clip['length'] = 22051;
+    clip['source_length'] = 44101;
+    splitArrangementClip(doc, 'clip', 10001, 'right');
+    final parts = doc['tracks'][0]['clips'];
+    expect(parts[0]['source_length'], 20002);
+    expect(parts[1]['source_start'], parts[0]['source_start'] + 20002);
+    expect(parts[1]['source_length'], 24099);
+  });
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });

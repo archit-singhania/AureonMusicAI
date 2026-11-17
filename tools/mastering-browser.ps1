@@ -1,3 +1,4 @@
+param([switch]$MixVersionGateway,[switch]$MidiGateway)
 $ErrorActionPreference='Stop'
 $qaRoot=Split-Path $PSScriptRoot -Parent
 Set-Location -LiteralPath $qaRoot
@@ -18,6 +19,16 @@ try{
  for($qaAttempt=0;$qaAttempt -lt 60;$qaAttempt++){try{$qaHealth=Invoke-RestMethod http://127.0.0.1:5094/health -TimeoutSec 2;$qaAudio=Invoke-RestMethod http://127.0.0.1:8114/health -TimeoutSec 2;if($qaHealth.status -eq 'ok'){$qaReady=$true;break}}catch{}; Start-Sleep -Milliseconds 500}
  if(-not $qaReady){throw 'Isolated gateway/worker did not become ready'}
  $env:AUREON_GATEWAY_URL='http://127.0.0.1:5094'
+ if($MidiGateway){
+   & (Join-Path $qaRoot '.runtime311/Scripts/python.exe') -m pytest tests/test_midi.py::test_midi_through_gateway tests/test_mix_versions.py::test_mix_versions_through_public_gateway tests/test_gateway.py -q -p no:cacheprovider --disable-warnings "--basetemp=$qaData/pytest"
+   if($LASTEXITCODE -ne 0){throw 'MIDI gateway acceptance failed'}
+   return
+ }
+ if($MixVersionGateway){
+   & (Join-Path $qaRoot '.runtime311/Scripts/python.exe') -m pytest tests/test_mix_versions.py::test_mix_versions_through_public_gateway tests/test_gateway.py -q -p no:cacheprovider --disable-warnings "--basetemp=$qaData/pytest"
+   if($LASTEXITCODE -ne 0){throw 'Mix-version gateway acceptance failed'}
+   return
+ }
  $qaWeb=Start-Process -FilePath (Join-Path $qaRoot '.runtime311/Scripts/python.exe') -ArgumentList @('-m','http.server','3094','--bind','127.0.0.1') -WorkingDirectory (Join-Path $qaRoot 'flutter_app/aureon/build/web') -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $qaData 'web.log') -RedirectStandardError (Join-Path $qaData 'web-errors.log')
  $env:PLAYWRIGHT_MODULE='C:/Users/dell/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'
  $env:AUREON_ACCEPTANCE_OUTPUT=Join-Path $qaData 'browser'
