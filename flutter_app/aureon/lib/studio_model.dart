@@ -90,6 +90,7 @@ class StudioModel extends ChangeNotifier {
   bool comparingPrevious = false, loudnessMatched = true;
   Json? previousMaster;
   bool previewing = false;
+  bool _loadingPreview = false;
   String previewTitle = '';
   double previewDuration = 0;
   String get transportTitle => previewing ? previewTitle : title;
@@ -536,7 +537,7 @@ class StudioModel extends ChangeNotifier {
         await request('GET', '/assets/${completed[1]['master_asset_id']}'),
       );
     }
-    if (!previewing) {
+    if (!previewing && !_loadingPreview) {
       await player.setUrl(url(master!['url']));
       position = Duration.zero;
     }
@@ -734,15 +735,23 @@ class StudioModel extends ChangeNotifier {
   }
 
   Future<void> playPreview(String audioUrl, String name) => guard(() async {
-    await closeStems();
-    await player.pause();
-    final length = await player.setUrl(url(audioUrl));
-    await player.setVolume(1);
-    previewing = true;
-    previewTitle = name;
-    previewDuration = (length?.inMilliseconds ?? 0) / 1000;
-    position = Duration.zero;
-    unawaited(player.play());
+    _loadingPreview = true;
+    try {
+      await closeStems();
+      await player.stop();
+      final length = await player.setUrl(
+        url(audioUrl),
+        initialPosition: Duration.zero,
+      );
+      await player.setVolume(1);
+      previewing = true;
+      previewTitle = name;
+      previewDuration = (length?.inMilliseconds ?? 0) / 1000;
+      position = Duration.zero;
+      unawaited(player.play());
+    } finally {
+      _loadingPreview = false;
+    }
   });
   Future<void> preview(Json preset) => playPreview(
     '/api/v1/presets/${preset['id']}/preview',

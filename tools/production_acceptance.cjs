@@ -3,9 +3,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const { chromium, request } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const output = path.resolve(__dirname, '../docs/screenshots/production-2026-10-15');
+const output = process.env.AUREON_ACCEPTANCE_OUTPUT || path.resolve(__dirname, '../.runtime/production-acceptance-'+Date.now());
 fs.mkdirSync(output, { recursive: true });
-const api='http://127.0.0.1:5084/api/v1';
+const api=(process.env.AUREON_GATEWAY_URL || 'http://127.0.0.1:5084')+'/api/v1';
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 (async()=>{
   const http=await request.newContext();
@@ -25,7 +25,7 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   page.on('requestfailed',r=>networkFailures.push({path:new URL(r.url()).pathname,error:r.failure()?.errorText}));
   page.on('console',m=>{if(m.text().startsWith('Studio request diagnostic:'))console.error(m.text());});
   async function press(name){const b=page.getByRole('button',{name,exact:true}).first();await b.waitFor({state:'visible',timeout:60000});for(let i=0;i<60 && !(await b.isEnabled());i++)await wait(1000);assert.ok(await b.isEnabled(),'Disabled '+name);await b.evaluate(e=>e.click());}
-  async function login(){await page.goto('http://localhost:3006',{waitUntil:'networkidle'});const p=page.locator('flt-semantics-placeholder');if(await p.count())await p.evaluate(e=>e.click());await press('Sign in');const ef=page.getByRole('textbox',{name:'Email address',exact:true});await ef.click({force:true});await wait(350);await page.keyboard.type(email,{delay:20});await ef.press('Tab');const pf=page.getByRole('textbox',{name:'Password · at least 10 characters',exact:true});await pf.click({force:true});await wait(350);await page.keyboard.type(password,{delay:20});await wait(250);await page.getByRole('textbox',{name:'Password · at least 10 characters',exact:true}).press('Tab');const [signedIn]=await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/auth/login'),page.getByRole('button',{name:'Sign in',exact:true}).last().click({force:true})]);assert.equal(signedIn.status(),200,'Real sign-in failed');await wait(1000);await press('Library');await press('Open');await page.getByRole('button',{name:'Render composite',exact:true}).waitFor({state:'visible',timeout:60000});}
+  async function login(){await page.goto(process.env.AUREON_WEB_URL || 'http://localhost:3006',{waitUntil:'networkidle'});const p=page.locator('flt-semantics-placeholder');if(await p.count())await p.evaluate(e=>e.click());await press('Sign in');const ef=page.getByRole('textbox',{name:'Email address',exact:true});await ef.click({force:true});await wait(350);await page.keyboard.type(email,{delay:20});await ef.press('Tab');const pf=page.getByRole('textbox',{name:'Password · at least 10 characters',exact:true});await pf.click({force:true});await wait(350);await page.keyboard.type(password,{delay:20});await wait(250);await page.getByRole('textbox',{name:'Password · at least 10 characters',exact:true}).press('Tab');const [signedIn]=await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/auth/login'),page.getByRole('button',{name:'Sign in',exact:true}).last().click({force:true})]);assert.equal(signedIn.status(),200,'Real sign-in failed');await wait(1000);await press('Library');await press('Open');await page.getByRole('button',{name:'Render composite',exact:true}).waitFor({state:'visible',timeout:60000});}
   try {
     await login();await press('Render composite');
     async function latest(kind){for(let i=0;i<120;i++){const j=(await get('/jobs?project_id='+project.id)).find(j=>j.job_kind===kind);if(j)return done(j.id);await wait(1000);}throw Error('Missing '+kind);}

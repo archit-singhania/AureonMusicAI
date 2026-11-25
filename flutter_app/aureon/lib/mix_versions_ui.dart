@@ -29,9 +29,15 @@ class _MixVersionsPanelState extends State<MixVersionsPanel> {
   Future<void> load() async {
     final rows = await model.request('GET', path);
     if (mounted) {
-      setState(
-        () => versions = (rows as List).map((r) => Json.from(r)).toList(),
-      );
+      setState(() {
+        versions = (rows as List).map((r) => Json.from(r)).toList();
+        final ids = versions.map((version) => version['id'] as String).toList();
+        if (!ids.contains(left)) left = ids.firstOrNull;
+        if (!ids.contains(right) || right == left) {
+          right = ids.where((id) => id != left).firstOrNull;
+        }
+        comparison = null;
+      });
     }
   }
 
@@ -47,6 +53,16 @@ class _MixVersionsPanelState extends State<MixVersionsPanel> {
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  Future<void> audition(Json asset, String label) async {
+    final studio = model;
+    await run(() async {
+      final fresh = Json.from(
+        await studio.request('GET', '/assets/${asset['id']}'),
+      );
+      if (mounted) await studio.playPreview(fresh['url'], label);
+    });
   }
 
   Widget selector(
@@ -224,8 +240,10 @@ class _MixVersionsPanelState extends State<MixVersionsPanel> {
                 ),
               for (final (i, a) in (comparison!['audio'] as List).indexed)
                 OutlinedButton(
-                  onPressed: () =>
-                      m.playPreview(a['url'], 'Mix ${i == 0 ? 'A' : 'B'}'),
+                  onPressed: busy || m.busy
+                      ? null
+                      : () =>
+                            audition(Json.from(a), 'Mix ${i == 0 ? 'A' : 'B'}'),
                   child: Text('Play original ${i == 0 ? 'A' : 'B'}'),
                 ),
               if (comparison!['job_id'] != null)
@@ -257,8 +275,12 @@ class _MixVersionsPanelState extends State<MixVersionsPanel> {
               for (final (i, a)
                   in ((comparison!['matched'] as List?) ?? []).indexed)
                 OutlinedButton(
-                  onPressed: () =>
-                      m.playPreview(a['url'], 'Matched ${i == 0 ? 'A' : 'B'}'),
+                  onPressed: busy || m.busy
+                      ? null
+                      : () => audition(
+                          Json.from(a),
+                          'Matched ${i == 0 ? 'A' : 'B'}',
+                        ),
                   child: Text('Play matched ${i == 0 ? 'A' : 'B'}'),
                 ),
             ],

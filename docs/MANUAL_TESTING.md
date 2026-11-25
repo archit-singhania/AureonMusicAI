@@ -107,13 +107,13 @@ $env:AUREON_GATEWAY_URL='http://localhost:5000'
 
 ## Android artifact and device acceptance
 
-The locally built debug APK is `flutter_app/aureon/build/app/outputs/apk/debug/app-debug.apk`. Its exact size and SHA-256 are in [VERIFICATION.md](VERIFICATION.md). It was built from the final Flutter source with the emulator gateway `http://10.0.2.2:5000`; signed media links resolve through that origin. With an Android emulator already running and `adb` available:
+The usual emulator debug build targets `http://10.0.2.2:5000`. For an authorized USB device, build with `flutter build apk --debug --dart-define=API_BASE_URL=http://127.0.0.1:5000`. Start the loopback gateway on port 5000, select the target from `adb devices -l`, and run `adb -s SERIAL reverse tcp:5000 tcp:5000`. Install the debug APK built for that origin. Signed media links use the same gateway.
 
 ```powershell
 adb install -r flutter_app/aureon/build/app/outputs/apk/debug/app-debug.apk
 ```
 
-Open Aureon and repeat the free guest walkthrough. Expect real gateway connectivity, audio playback, media export and persisted session state. Test microphone permission, denial, recording, secure token storage, interruptions and resume. The APK compiled successfully; no emulator or physical-device execution was performed here. A physical phone needs a new build with a reachable gateway origin and intentional network binding. The debug manifest permits local HTTP; release builds require HTTPS. iOS is prepared for unsigned macOS CI but has not been compiled or tested on this Windows host.
+Open Aureon and repeat the free guest walkthrough. Expect real gateway connectivity, audio playback, media export and persisted session state. Test microphone permission, denial, recording, secure token storage, interruptions and resume. The November 23 debug build passed with JDK 21 and the repository-local Gradle cache. The APK SHA-256 was `534e2195f3a7ecaef613adff6fa64617e8cc39d8edb72096f02e659e1dc23750`. On retry, ADB installed the APK and confirmed that Aureon's MainActivity was running as the top activity. The emulator disconnected before the UI capture, so visual launch, playback and recording remain unverified. The debug manifest permits local HTTP; release builds require HTTPS. iOS is prepared for unsigned macOS CI but has not been compiled or tested on this Windows host.
 
 ## External/device gates and troubleshooting
 

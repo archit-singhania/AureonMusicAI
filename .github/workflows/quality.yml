@@ -50,6 +50,33 @@ jobs:
         run: flutter pub get
       - working-directory: flutter_app/aureon
         run: flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:5000
+      - name: Install and launch on a fresh Android emulator
+        timeout-minutes: 12
+        shell: bash
+        run: |
+          mkdir -p android-smoke
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+          image='system-images;android-35;google_apis;x86_64'
+          sdkmanager "$image"
+          echo no | avdmanager create avd --name aureon-smoke --package "$image"
+          emulator -avd aureon-smoke -no-window -no-snapshot -no-audio -gpu swiftshader_indirect -port 5554 > android-smoke/emulator.txt 2>&1 &
+          emulator_pid=$!
+          trap 'adb -s emulator-5554 emu kill >/dev/null 2>&1 || kill "$emulator_pid" 2>/dev/null || true' EXIT
+          serial=emulator-5554
+          timeout 180 bash -c 'until [[ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do sleep 2; done'
+          adb -s "$serial" shell input keyevent KEYCODE_WAKEUP
+          adb -s "$serial" shell wm dismiss-keyguard
+          apk=flutter_app/aureon/build/app/outputs/flutter-apk/app-debug.apk
+          sha256sum "$apk" > android-smoke/apk.sha256
+          adb -s "$serial" install "$apk"
+          adb -s "$serial" shell am start -W -n dev.aureon.aureon/.MainActivity | tee android-smoke/launch.txt
+          grep -q 'Status: ok' android-smoke/launch.txt
+          adb -s "$serial" shell dumpsys activity activities > android-smoke/activities.txt
+          grep -q 'topResumedActivity.*dev\.aureon\.aureon/.MainActivity' android-smoke/activities.txt
+          adb -s "$serial" exec-out screencap -p > android-smoke/launch.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: aureon-android-smoke, path: android-smoke/}
       - uses: actions/upload-artifact@v4
         with: {name: aureon-android-debug, path: flutter_app/aureon/build/app/outputs/flutter-apk/app-debug.apk}
   ios-unsigned:

@@ -7,6 +7,7 @@ import json
 import re
 import sqlite3
 import subprocess
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -30,7 +31,7 @@ def audio_info(source):
 
 
 def ffmpeg_decode(path):
-    process = subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner",
+    process = subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner", "-xerror",
                               "-i", str(path), "-f", "null", "-"],
                              capture_output=True, text=True, timeout=180)
     if process.returncode:
@@ -56,14 +57,47 @@ def artifact_info(path):
                 modified_utc=datetime.datetime.fromtimestamp(path.stat().st_mtime,
                              datetime.timezone.utc).isoformat())
 
+def release_kit_info(path):
+    result = {"archive": artifact_info(path), "files": {}}
+    with zipfile.ZipFile(path) as archive, tempfile.TemporaryDirectory() as folder:
+        manifest = json.loads(archive.read("manifest.json"))
+        entries = {item["name"]: item for item in manifest["files"]}
+        required = {"artwork.png", "credits.txt", "master.wav", "square-teaser.mp4", "portrait-teaser.mp4"}
+        missing = required.difference(entries)
+        if missing:
+            raise ValueError("Release kit is missing required outputs: " + ", ".join(sorted(missing)))
+        if len(entries) != len(manifest["files"]) or sorted(archive.namelist()) != sorted([*entries, "manifest.json"]):
+            raise ValueError("Release kit contents differ from the manifest")
+        for name, entry in entries.items():
+            content = archive.read(name)
+            if len(content) != entry["bytes"] or hashlib.sha256(content).hexdigest() != entry["sha256"]:
+                raise ValueError(f"Release kit integrity check failed for {name}")
+            item = {"bytes": len(content), "sha256": entry["sha256"]}
+            if name.endswith(".mp4"):
+                media = Path(folder) / Path(name).name
+                media.write_bytes(content)
+                item.update(ffmpeg_decode(media))
+                if not all(any(kind in stream for stream in item["streams"]) for kind in ("Audio:", "Video:")):
+                    raise ValueError(f"{name} must contain both audio and video")
+            elif name.endswith((".wav", ".mp3")):
+                item.update(audio_info(io.BytesIO(content)))
+            result["files"][name] = item
+    return result
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("directory", type=Path)
     parser.add_argument("--database", type=Path)
+    parser.add_argument("--release-kit-only", action="store_true")
     args = parser.parse_args()
     directory = args.directory.resolve()
     result = dict(date=datetime.datetime.now(datetime.timezone.utc).isoformat())
+    if args.release_kit_only:
+        result["release_kit"] = release_kit_info(directory / "release-kit.zip")
+        (directory / "release-kit-decode.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+        print(json.dumps(result, indent=2))
+        return
     result["master_wav"] = audio_info(directory / "guest-master.wav")
     result["master_mp3"] = audio_info(directory / "guest-master.mp3")
     result["visualizer_mp4"] = ffmpeg_decode(directory / "guest-visualizer.mp4")

@@ -13,9 +13,21 @@ builder.Services.AddHttpClient("Audio", client => {
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins((builder.Configuration["AllowedOrigins"] ?? "http://localhost:3005,http://localhost:8080").Split(','))
     .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
-builder.Services.AddRateLimiter(options => options.AddPolicy("api", context =>
-    RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "local", _ =>
-        new FixedWindowRateLimiterOptions { PermitLimit = 180, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })));
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellation) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var delay))
+            context.HttpContext.Response.Headers.RetryAfter =
+                Math.Max(1, (int)Math.Ceiling(delay.TotalSeconds)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new { detail = "Too many studio requests. Wait briefly and retry." }, cancellation);
+    };
+    options.AddPolicy("api", context =>
+        RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "local", _ =>
+            new FixedWindowRateLimiterOptions { PermitLimit = 180, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+});
 builder.Services.AddHostedService<StudioEventRelay>();
 var app = builder.Build();
 app.UseCors();
