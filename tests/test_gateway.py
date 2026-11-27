@@ -69,12 +69,46 @@ def test_gateway_preserves_consented_multipart_audio_upload():
         assert asset["media_type"] == "audio/wav"
         assert asset["id"] in {item["id"] for item in client.get("/api/v1/assets", headers=headers).json()}
         assert abs(asset["metrics"]["duration"] - 0.1) < 0.001
+        project_url = "/api/v1/projects/" + project["id"]
+        updated = client.put(project_url, headers=headers, json={
+            "revision": project["revision"],
+            "state": {"vocal_asset_id": asset["id"], "engine": "recording"},
+            "action": "Attach recorded take",
+        })
+        assert updated.status_code == 200, updated.text
+        reopened = client.get(project_url, headers=headers)
+        assert reopened.status_code == 200, reopened.text
+        assert reopened.json()["vocal_asset_id"] == asset["id"]
+        assert reopened.json()["engine"] == "recording"
+        assert reopened.json()["revision"] == project["revision"] + 1
+        other = client.post("/api/v1/auth/register", json={
+            "email": f"other-upload-{time.time_ns()}@example.test",
+            "password": "long-test-password",
+            "name": "Unrelated fixture",
+        })
+        assert other.status_code == 201, other.text
+        foreign_headers = {"Authorization": "Bearer " + other.json()["token"]}
+        assert client.get(project_url, headers=foreign_headers).status_code == 404
+        assert client.get("/api/v1/assets/" + asset["id"], headers=foreign_headers).status_code == 404
         saved = client.get(asset["url"])
         assert saved.status_code == 200
         with wave.open(io.BytesIO(saved.content)) as decoded:
             assert decoded.getframerate() == 44100
             assert decoded.getnframes() == 4410
             assert decoded.getsampwidth() == 3
+        size = len(saved.content)
+        for request_range, start, end in (
+            ("bytes=512-1023", 512, 1023),
+            (f"bytes={size - 384}-", size - 384, size - 1),
+            ("bytes=-192", size - 192, size - 1),
+        ):
+            segment = client.get(asset["url"], headers={"Range": request_range})
+            assert segment.status_code == 206, segment.text
+            assert segment.headers["content-range"] == f"bytes {start}-{end}/{size}"
+            assert segment.headers["accept-ranges"] == "bytes"
+            assert segment.content == saved.content[start:end + 1]
+        invalid = client.get(asset["url"], headers={"Range": f"bytes={size}-"})
+        assert invalid.status_code == 416
 
 
 def test_gateway_contract_streaming_and_live_events():

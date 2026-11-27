@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -110,6 +111,28 @@ void main() {
         'revision': 1,
         'arrangement': fixture(),
       };
+      Json? savedState;
+      model.dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            expect(options.method, 'PUT');
+            expect(options.path, '/api/v1/projects/project');
+            final payload = options.data as Json;
+            savedState = payload['state'] as Json;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'id': 'project',
+                  ...savedState!,
+                  'revision': (payload['revision'] as int) + 1,
+                },
+              ),
+            );
+          },
+        ),
+      );
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
           value: model,
@@ -171,6 +194,57 @@ void main() {
       expect(moved['start'], greaterThan(100));
       expect(moved['source_start'], 200);
       expect(moved['length'], 44100);
+      final inspector = find.text('Inspect / trim / loop / fades');
+      await tester.ensureVisible(inspector);
+      await tester.pumpAndSettle();
+      await tester.tap(inspector);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Length'),
+        '40000',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Tempo ratio (0.5–2)'),
+        '2',
+      );
+      await tester.enterText(
+        find.widgetWithText(
+          TextFormField,
+          'Pitch shift (−12 to +12 semitones)',
+        ),
+        '3',
+      );
+      await tester.tap(find.text('Apply edit'));
+      await tester.pumpAndSettle();
+      final transformed =
+          model.current!['arrangement']['tracks'][0]['clips'][0];
+      expect(transformed['length'], 20000);
+      expect(transformed['source_length'], 40000);
+      expect(transformed['pitch_semitones'], 3);
+      final cursor = find.text('Cursor 0 samples');
+      await tester.ensureVisible(cursor);
+      await tester.pumpAndSettle();
+      await tester.tap(cursor);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Sample'),
+        '${transformed['start'] + 10000}',
+      );
+      await tester.tap(find.text('Apply edit'));
+      await tester.pumpAndSettle();
+      final split = find.text('Split clip at cursor');
+      await tester.ensureVisible(split);
+      await tester.pumpAndSettle();
+      await tester.tap(split);
+      await tester.pumpAndSettle();
+      final pieces =
+          model.current!['arrangement']['tracks'][0]['clips'] as List;
+      expect(pieces.map((clip) => clip['length']), [10000, 10000]);
+      expect(pieces.map((clip) => clip['source_start']), [200, 20200]);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(savedState?['arrangement'], model.current!['arrangement']);
+      expect(model.dirty, isFalse);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       model.dispose();

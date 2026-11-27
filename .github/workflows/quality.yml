@@ -17,6 +17,7 @@ jobs:
         env:
           AUREON_INTERNAL_KEY: ci-local-only-key
           AUREON_GATEWAY_URL: http://localhost:5000
+          AudioService__BaseUrl: http://127.0.0.1:8103
         run: |
           (cd python_audio_service && uvicorn main:app --host 127.0.0.1 --port 8103) > /tmp/aureon-python.log 2>&1 &
           dotnet run --no-build -c Release --project dotnet_backend/AureonApi --urls http://localhost:5000 > /tmp/aureon-dotnet.log 2>&1 &
@@ -38,42 +39,175 @@ jobs:
         run: flutter build web --release
       - uses: actions/upload-artifact@v4
         with: {name: aureon-web, path: flutter_app/aureon/build/web}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11', cache: pip, cache-dependency-path: python_audio_service/requirements-dev.txt}
+      - uses: actions/setup-dotnet@v4
+        with: {dotnet-version: '10.0.x'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Browser export and independent review acceptance
+        timeout-minutes: 12
+        env:
+          AUREON_INTERNAL_KEY: ci-local-only-key
+          AUREON_GATEWAY_URL: http://localhost:5000
+          AUREON_WEB_URL: http://localhost:3006
+          AUREON_ORIGINS: http://localhost:3006
+          AllowedOrigins: http://localhost:3006
+          AudioService__BaseUrl: http://127.0.0.1:8103
+          PLAYWRIGHT_CHANNEL: chromium
+        run: |
+          evidence="$PWD/browser-evidence"
+          mkdir -p "$evidence"
+          export AUREON_ACCEPTANCE_OUTPUT="$evidence"
+          export AUREON_DATA_DIR="$RUNNER_TEMP/aureon-browser-data"
+          python -m pip install -r python_audio_service/requirements-dev.txt imageio-ffmpeg==0.6.0
+          npm install --prefix "$RUNNER_TEMP/aureon-playwright" --no-audit --no-fund playwright@1.63.0
+          export PLAYWRIGHT_MODULE="$RUNNER_TEMP/aureon-playwright/node_modules/playwright"
+          "$RUNNER_TEMP/aureon-playwright/node_modules/.bin/playwright" install --with-deps chromium
+          dotnet build dotnet_backend/AureonApi/AureonApi.csproj -c Release
+          uvicorn main:app --app-dir python_audio_service --host 127.0.0.1 --port 8103 > "$evidence/worker.txt" 2>&1 &
+          worker=$!
+          dotnet dotnet_backend/AureonApi/bin/Release/net10.0/AureonApi.dll --urls http://localhost:5000 > "$evidence/gateway.txt" 2>&1 &
+          gateway=$!
+          python -m http.server 3006 --bind localhost --directory flutter_app/aureon/build/web > "$evidence/web.txt" 2>&1 &
+          web=$!
+          trap 'kill "$worker" "$gateway" "$web" 2>/dev/null || true' EXIT
+          timeout 60 bash -c 'until curl -fsS http://localhost:5000/health && curl -fsS http://127.0.0.1:8103/health && curl -fsS http://localhost:3006/ > /dev/null; do sleep 1; done'
+          node tools/advanced_arrangement_acceptance.cjs
+          python tools/decode_audit_media.py "$evidence" --release-kit-only --require-browser-render
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: aureon-browser-export, path: browser-evidence/}
   android:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11', cache: pip, cache-dependency-path: python_audio_service/requirements-dev.txt}
+      - uses: actions/setup-dotnet@v4
+        with: {dotnet-version: '10.0.x'}
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1
+          python -m pip install -r python_audio_service/requirements-dev.txt
+          dotnet build dotnet_backend/AureonApi/AureonApi.csproj -c Release
       - uses: actions/setup-java@v4
         with: {distribution: temurin, java-version: '21', cache: gradle}
       - uses: subosito/flutter-action@v2
         with: {channel: stable, flutter-version: '3.47.3', cache: true}
       - working-directory: flutter_app/aureon
         run: flutter pub get
+      - uses: android-actions/setup-android@v3
       - working-directory: flutter_app/aureon
         run: flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:5000
-      - name: Install and launch on a fresh Android emulator
+      - name: Register a synthetic account on a fresh Android emulator
         timeout-minutes: 12
         shell: bash
+        env:
+          AUREON_INTERNAL_KEY: ci-local-only-key
+          AudioService__BaseUrl: http://127.0.0.1:8103
         run: |
           mkdir -p android-smoke
+          export AUREON_DATA_DIR="$RUNNER_TEMP/aureon-android-data"
+          uvicorn main:app --app-dir python_audio_service --host 127.0.0.1 --port 8103 > android-smoke/worker.txt 2>&1 &
+          worker=$!
+          dotnet dotnet_backend/AureonApi/bin/Release/net10.0/AureonApi.dll --urls http://127.0.0.1:5000 > android-smoke/gateway.txt 2>&1 &
+          gateway=$!
+          trap 'kill "$worker" "$gateway" 2>/dev/null || true' EXIT
+          timeout 60 bash -c 'until curl -fsS http://127.0.0.1:5000/health && curl -fsS http://127.0.0.1:8103/health; do sleep 1; done'
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           image='system-images;android-35;google_apis;x86_64'
-          sdkmanager "$image"
+          sdkmanager "$image" emulator platform-tools
+          export PATH="$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH"
           echo no | avdmanager create avd --name aureon-smoke --package "$image"
           emulator -avd aureon-smoke -no-window -no-snapshot -no-audio -gpu swiftshader_indirect -port 5554 > android-smoke/emulator.txt 2>&1 &
           emulator_pid=$!
-          trap 'adb -s emulator-5554 emu kill >/dev/null 2>&1 || kill "$emulator_pid" 2>/dev/null || true' EXIT
+          cleanup() {
+            kill "$worker" "$gateway" 2>/dev/null || true
+            timeout 10 adb devices -l > android-smoke/devices.txt 2>&1 || true
+            timeout 10 adb -s emulator-5554 logcat -d -s flutter AndroidRuntime > android-smoke/app.txt 2>&1 || true
+            timeout 10 adb -s emulator-5554 emu kill >/dev/null 2>&1 || kill "$emulator_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
           serial=emulator-5554
           timeout 180 bash -c 'until [[ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do sleep 2; done'
           adb -s "$serial" shell input keyevent KEYCODE_WAKEUP
           adb -s "$serial" shell wm dismiss-keyguard
           apk=flutter_app/aureon/build/app/outputs/flutter-apk/app-debug.apk
           sha256sum "$apk" > android-smoke/apk.sha256
-          adb -s "$serial" install "$apk"
-          adb -s "$serial" shell am start -W -n dev.aureon.aureon/.MainActivity | tee android-smoke/launch.txt
-          grep -q 'Status: ok' android-smoke/launch.txt
+          timeout 120 adb -s "$serial" install "$apk"
+          timeout 90 adb -s "$serial" shell am start -W -n dev.aureon.aureon/.MainActivity | tee android-smoke/launch.txt
+          # The activity manager can time out while Flutter is still starting.
+          grep -Eq '^Status: (ok|timeout)' android-smoke/launch.txt
+          timeout 90 bash -c '
+            until adb -s emulator-5554 shell uiautomator dump /data/local/tmp/aureon-ui.xml >/dev/null 2>&1 &&
+              adb -s emulator-5554 shell cat /data/local/tmp/aureon-ui.xml > android-smoke/ui.xml &&
+              grep -Eq "(text|content-desc)=\"Sign in\"" android-smoke/ui.xml; do
+              sleep 2
+            done'
           adb -s "$serial" shell dumpsys activity activities > android-smoke/activities.txt
           grep -q 'topResumedActivity.*dev\.aureon\.aureon/.MainActivity' android-smoke/activities.txt
           adb -s "$serial" exec-out screencap -p > android-smoke/launch.png
+          tap_control() {
+            local x y
+            read -r x y < <(python3 - "$1" "$2" <<'PY'
+          import re
+          import sys
+          import xml.etree.ElementTree as ET
+
+          hierarchy, label = sys.argv[1:]
+          for node in ET.parse(hierarchy).iter("node"):
+              if label not in (node.get("text"), node.get("content-desc"), node.get("hint")):
+                  continue
+              left, top, right, bottom = map(int, re.findall(r"-?\d+", node.attrib["bounds"]))
+              if right > left and bottom > top:
+                  print((left + right) // 2, (top + bottom) // 2)
+                  break
+          else:
+              raise SystemExit(f"{label} has no tappable bounds")
+          PY
+            )
+            timeout 10 adb -s "$serial" shell input tap "$x" "$y"
+          }
+          # Flutter may expose editable field labels as Android hints.
+          tap_control android-smoke/ui.xml 'Sign in'
+          timeout 40 bash -c '
+            until adb -s emulator-5554 shell uiautomator dump /data/local/tmp/aureon-ui.xml >/dev/null 2>&1 &&
+              adb -s emulator-5554 shell cat /data/local/tmp/aureon-ui.xml > android-smoke/account.xml &&
+              grep -Eiq "(text|content-desc|hint)=\"Email address\"" android-smoke/account.xml &&
+              grep -Eiq "(text|content-desc|hint)=\"Password[^\"]*\"" android-smoke/account.xml; do
+              sleep 2
+            done'
+          adb -s "$serial" exec-out screencap -p > android-smoke/account.png
+          tap_control android-smoke/account.xml 'New here? Create an account'
+          timeout 40 bash -c '
+            until adb -s emulator-5554 shell uiautomator dump /data/local/tmp/aureon-ui.xml >/dev/null 2>&1 &&
+              adb -s emulator-5554 shell cat /data/local/tmp/aureon-ui.xml > android-smoke/register.xml &&
+              grep -Eq "(text|content-desc|hint)=\"Your name\"" android-smoke/register.xml &&
+              grep -Eq "(text|content-desc)=\"Create account\"" android-smoke/register.xml; do
+              sleep 2
+            done'
+          adb -s "$serial" exec-out screencap -p > android-smoke/register.png
+          enter_field() {
+            local label="$1" value="$2"
+            tap_control android-smoke/register.xml "$label"
+            adb -s "$serial" shell input text "$value"
+            adb -s "$serial" shell input keyevent KEYCODE_BACK
+            timeout 20 adb -s "$serial" shell uiautomator dump /data/local/tmp/aureon-ui.xml >/dev/null
+            adb -s "$serial" shell cat /data/local/tmp/aureon-ui.xml > android-smoke/register.xml
+          }
+          enter_field 'Your name' 'CI%sStudio'
+          enter_field 'Email address' 'android-smoke@example.test'
+          enter_field 'Password · at least 10 characters' 'AureonFixture2026'
+          tap_control android-smoke/register.xml 'Create account'
+          timeout 60 bash -c '
+            until adb -s emulator-5554 shell uiautomator dump /data/local/tmp/aureon-ui.xml >/dev/null 2>&1 &&
+              adb -s emulator-5554 shell cat /data/local/tmp/aureon-ui.xml > android-smoke/signed-in.xml &&
+              grep -Eq "(text|content-desc)=\"(Your account|CI Studio)\"" android-smoke/signed-in.xml; do
+              sleep 2
+            done'
+          grep -Eq 'POST /api/v1/auth/register HTTP/[^ ]+" 201' android-smoke/worker.txt
+          adb -s "$serial" exec-out screencap -p > android-smoke/signed-in.png
       - uses: actions/upload-artifact@v4
         if: always()
         with: {name: aureon-android-smoke, path: android-smoke/}

@@ -3226,13 +3226,15 @@ Future<void> recordingSheet(BuildContext context) =>
     sheet(context, const RecordingForm());
 
 class RecordingForm extends StatefulWidget {
-  const RecordingForm({super.key});
+  const RecordingForm({super.key, this.createRecorder = AudioRecorder.new});
+
+  final AudioRecorder Function() createRecorder;
   @override
   State<RecordingForm> createState() => _RecordingFormState();
 }
 
 class _RecordingFormState extends State<RecordingForm> {
-  final recorder = AudioRecorder();
+  late final recorder = widget.createRecorder();
   bool recording = false, consent = false, processing = false;
   final chunks = <int>[];
   StreamSubscription<Uint8List>? pcmSubscription;
@@ -3272,10 +3274,14 @@ class _RecordingFormState extends State<RecordingForm> {
                   setState(() => processing = true);
                   try {
                     if (!recording) {
-                      if (!await recorder.hasPermission()) {
-                        throw Exception('Microphone permission is needed.');
-                      }
+                      final permitted = await recorder.hasPermission();
                       if (!mounted) return;
+                      if (!permitted) {
+                        setState(
+                          () => message = 'Microphone permission is needed.',
+                        );
+                        return;
+                      }
                       chunks.clear();
                       final stream = await recorder.startStream(
                         const RecordConfig(
@@ -3372,15 +3378,16 @@ class _RecordingFormState extends State<RecordingForm> {
           ),
         ),
         const SizedBox(height: 12),
-        Text(
-          recording
-              ? message.isEmpty
-                    ? 'Recording from your microphone…'
-                    : message
-              : message.isEmpty
-              ? 'Recordings are stored privately with this session.'
-              : message,
-          style: muted(context),
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            message.isNotEmpty
+                ? message
+                : recording
+                ? 'Recording from your microphone…'
+                : 'Recordings are stored privately with this session.',
+            style: muted(context),
+          ),
         ),
       ],
     );

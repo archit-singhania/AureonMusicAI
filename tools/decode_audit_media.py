@@ -32,7 +32,8 @@ def audio_info(source):
 
 def ffmpeg_decode(path):
     process = subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner", "-xerror",
-                              "-i", str(path), "-f", "null", "-"],
+                              "-i", str(path), "-map", "0:v?", "-map", "0:a?",
+                              "-f", "null", "-"],
                              capture_output=True, text=True, timeout=180)
     if process.returncode:
         raise ValueError("FFmpeg decode failed: " + process.stderr[-1500:])
@@ -90,11 +91,35 @@ def main():
     parser.add_argument("directory", type=Path)
     parser.add_argument("--database", type=Path)
     parser.add_argument("--release-kit-only", action="store_true")
+    parser.add_argument("--require-browser-render", action="store_true",
+                        help="Require the integrated browser receipt and arrangement WAV")
     args = parser.parse_args()
+    if args.require_browser_render and not args.release_kit_only:
+        parser.error("--require-browser-render requires --release-kit-only")
     directory = args.directory.resolve()
     result = dict(date=datetime.datetime.now(datetime.timezone.utc).isoformat())
     if args.release_kit_only:
         result["release_kit"] = release_kit_info(directory / "release-kit.zip")
+        browser_receipt = directory / "integrated-export.json"
+        if args.require_browser_render or browser_receipt.exists():
+            receipt = json.loads(browser_receipt.read_text(encoding="utf-8"))
+            expected = receipt["renderedMasterSha256"]
+            if args.require_browser_render and (
+                receipt["auditioned"] != ["A", "B"]
+                or receipt["comparisonVersions"] != 2
+                or len(set(receipt["sourceHashes"])) != 2
+                or expected not in receipt["sourceHashes"]
+            ):
+                raise ValueError("Browser receipt does not establish two distinct auditioned mixes")
+            rendered = directory / "rendered-arrangement.wav"
+            rendered_hash = artifact_info(rendered)["sha256"]
+            kit_hash = result["release_kit"]["files"]["master.wav"]["sha256"]
+            if expected != rendered_hash or rendered_hash != kit_hash:
+                raise ValueError("Release-kit master does not match the browser-rendered arrangement")
+            result["browser_render_match"] = {
+                "sha256": rendered_hash,
+                "decoded_arrangement": audio_info(rendered),
+            }
         (directory / "release-kit-decode.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
         print(json.dumps(result, indent=2))
         return

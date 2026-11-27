@@ -48,7 +48,8 @@ class StudioModel extends ChangeNotifier {
       notifyListeners();
     });
     playerSubscription = player.playerStateStream.listen((value) {
-      playing = value.playing;
+      playing =
+          value.playing && value.processingState != ProcessingState.completed;
       notifyListeners();
     });
     if (start) bootstrap();
@@ -631,7 +632,10 @@ class StudioModel extends ChangeNotifier {
         await p.pause();
       }
     } else {
-      if (position.inMilliseconds >= duration * 1000) await seek(Duration.zero);
+      if (player.processingState == ProcessingState.completed ||
+          (duration > 0 && position.inMilliseconds >= duration * 1000)) {
+        await seek(Duration.zero);
+      }
       if (stemMode) {
         await player.setVolume(0);
         for (final p in stemPlayers.values) {
@@ -648,7 +652,9 @@ class StudioModel extends ChangeNotifier {
           if (playing) {
             await player.pause();
           } else {
-            if (position.inMilliseconds >= transportDuration * 1000) {
+            if (player.processingState == ProcessingState.completed ||
+                (transportDuration > 0 &&
+                    position.inMilliseconds >= transportDuration * 1000)) {
               await player.seek(Duration.zero);
             }
             unawaited(player.play());

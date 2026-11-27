@@ -45,7 +45,7 @@ const timeout = ms => new Promise(resolve => setTimeout(resolve, ms));
   const queued=await http.post(api+`/projects/${project.id}/jobs`,{headers,data:{kind:'generate'}});assert.equal(queued.status(),202);
   async function done(jid) { const deadline=Date.now()+90000;while(Date.now()<deadline) { const j=await get('/jobs/'+jid); if(['done','failed','cancelled'].includes(j.status)) {assert.equal(j.status,'done',j.error);return j;}await timeout(300); }throw new Error('Actual worker job timed out'); }
   const generated=await done((await queued.json()).id);
-  const browser=await chromium.launch({channel:'chrome',headless:true});
+  const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL || 'chrome',headless:true});
   const context=await browser.newContext({viewport:{width:1440,height:1100}});
   await context.addInitScript(()=>{
     const source=Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype,'src');
@@ -283,8 +283,13 @@ const timeout = ms => new Promise(resolve => setTimeout(resolve, ms));
     const invitation=page.getByRole('textbox',{name:'Reviewer account email for version A'});
     await invitation.fill(reviewerEmail);
     await invitation.press('Tab');
-    await press('Share version A for review');
-    await page.getByText(/Independent reviewer can review/).waitFor({state:'visible'});
+    const [invited]=await Promise.all([
+      page.waitForResponse(response=>response.url().endsWith('/mix-reviews') && response.request().method()==='POST'),
+      press('Share version A for review'),
+    ]);
+    assert.equal(invited.status(),201,await invited.text());
+    const sharedReview=await invited.json();
+    assert.equal(sharedReview.reviewer_name,'Independent reviewer');
     const ownerPage=page;
     const reviewContext=await browser.newContext({viewport:{width:1440,height:1100}});
     page=await reviewContext.newPage();
